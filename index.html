@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Standard Work Creation</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <h1>Standard Work Capture</h1>
+      <div class="session-controls">
+        <button id="startBtn" class="btn btn-primary">Start</button>
+        <button id="pauseBtn" class="btn btn-secondary" disabled>Pause</button>
+        <button id="stopBtn" class="btn btn-danger" disabled>Stop</button>
+      </div>
+    </header>
+
+    <section class="display-card">
+      <div id="videoWrap" class="video-wrap">
+        <video id="liveVideo" autoplay playsinline muted></video>
+        <div id="videoFallback" class="video-fallback hidden">
+          <div class="fallback-title">Camera not active</div>
+          <div class="fallback-sub">Timer mode is running</div>
+        </div>
+      </div>
+      <div class="timer-panel">
+        <div class="timer-label">Elapsed Time</div>
+        <div id="timer" class="timer">00:00.000</div>
+        <button id="cameraBtn" class="btn btn-outline">Enable Camera</button>
+      </div>
+    </section>
+
+    <section class="tag-grid" aria-label="Tag Buttons">
+      <button class="tag tag-value" data-tag="Value Added">Value Added</button>
+      <button class="tag tag-nva" data-tag="Non-Value Added">Non-Value Added</button>
+      <button class="tag tag-waste" data-tag="Waste">Waste</button>
+      <button class="tag tag-pause" data-tag="Pause">Pause</button>
+    </section>
+
+    <section class="log-card">
+      <div class="log-header">
+        <h2>Event Log</h2>
+        <button id="exportBtn" class="btn btn-outline">Export CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Tag</th>
+              <th>Elapsed</th>
+              <th>Timestamp</th>
+            </tr>
+          </thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
