@@ -8,6 +8,7 @@ const videoFallback = document.getElementById("videoFallback");
 const logBody = document.getElementById("logBody");
 const exportBtn = document.getElementById("exportBtn");
 const tagButtons = Array.from(document.querySelectorAll(".tag"));
+const pauseTagBtn = tagButtons.find((btn) => btn.dataset.tag === "Pause");
 
 let running = false;
 let startTime = 0;
@@ -48,6 +49,9 @@ function setSessionState() {
   pauseBtn.disabled = !sessionStarted;
   stopBtn.disabled = !sessionStarted;
   pauseBtn.textContent = paused ? "Resume" : "Pause";
+  if (pauseTagBtn) {
+    pauseTagBtn.textContent = paused ? "Resume" : "Pause";
+  }
 }
 
 function appendEvent(tag) {
@@ -83,8 +87,12 @@ function startSession() {
   sessionStarted = true;
   running = true;
   startTime = nowMs();
-  if (isResume && mediaRecorder && mediaRecorder.state === "paused") {
-    mediaRecorder.resume();
+  if (isResume && mediaRecorder) {
+    if (mediaRecorder.state === "paused") {
+      mediaRecorder.resume();
+    } else if (mediaRecorder.state === "inactive") {
+      startRecordingIfNeeded();
+    }
   }
   setSessionState();
   cancelAnimationFrame(rafId);
@@ -338,6 +346,8 @@ tagButtons.forEach((btn) => {
       if (running) {
         pauseSession(false);
         appendEvent("Pause");
+      } else if (sessionStarted) {
+        startSession();
       } else {
         appendEvent("Pause Marker");
       }
