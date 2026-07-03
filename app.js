@@ -5,20 +5,27 @@ const timerEl = document.getElementById("timer");
 const cameraBtn = document.getElementById("cameraBtn");
 const liveVideo = document.getElementById("liveVideo");
 const videoFallback = document.getElementById("videoFallback");
-const logBody = document.getElementById("logBody");
+const processBody = document.getElementById("processBody");
 const exportBtn = document.getElementById("exportBtn");
-const tagButtons = Array.from(document.querySelectorAll(".tag"));
-const pauseTagBtn = tagButtons.find((btn) => btn.dataset.tag === "Pause");
+const processImageBtn = document.getElementById("processImageBtn");
+const nameProcessBtn = document.getElementById("nameProcessBtn");
+const nextProcessBtn = document.getElementById("nextProcessBtn");
+const nameProcessPanel = document.getElementById("nameProcessPanel");
+const processNameInput = document.getElementById("processNameInput");
+const saveProcessNameBtn = document.getElementById("saveProcessName");
+const cancelProcessNameBtn = document.getElementById("cancelProcessName");
+const currentProcessEl = document.getElementById("currentProcess");
 
 let running = false;
 let startTime = 0;
 let elapsedBefore = 0;
 let rafId = null;
-let events = [];
 let stream = null;
 let sessionStarted = false;
 let mediaRecorder = null;
 let recordingChunks = [];
+let processes = [];
+let currentProcess = null;
 
 function nowMs() {
   return performance.now();
@@ -43,50 +50,135 @@ function renderTimer() {
   }
 }
 
+function defaultProcessLabel(index) {
+  return `Process ${index}`;
+}
+
+function currentProcessLabel() {
+  if (!currentProcess) {
+    return processes.length === 0 ? defaultProcessLabel(1) : "No active process";
+  }
+
+  const name = currentProcess.name.trim();
+  return name || defaultProcessLabel(currentProcess.index);
+}
+
+function setProcessLabel() {
+  currentProcessEl.textContent = currentProcessLabel();
+}
+
+function renderProcesses() {
+  processBody.innerHTML = "";
+
+  if (processes.length === 0) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="5" class="empty-state">No processes captured yet.</td>`;
+    processBody.appendChild(tr);
+    return;
+  }
+
+  processes.forEach((process) => {
+    const tr = document.createElement("tr");
+    if (process === currentProcess) {
+      tr.classList.add("current-row");
+    }
+
+    const displayName = process.name.trim() || defaultProcessLabel(process.index);
+    const screenshotLabel = process.screenshotFileName || "No screenshot";
+    const previewCell = process.screenshotDataUrl
+      ? `<button class="thumb-button" type="button" aria-label="Open screenshot for ${displayName}"><img src="${process.screenshotDataUrl}" alt="Screenshot for ${displayName}" /></button>`
+      : `<span class="empty-cell">No preview</span>`;
+
+    tr.innerHTML = `
+      <td>${process.index}</td>
+      <td title="${process.startedAtIso}">${process.startedAtLocal}</td>
+      <td>${displayName}</td>
+      <td>${screenshotLabel}</td>
+      <td>${previewCell}</td>
+    `;
+
+    const thumbButton = tr.querySelector(".thumb-button");
+    if (thumbButton && process.screenshotDataUrl) {
+      thumbButton.addEventListener("click", () => {
+        const win = window.open(process.screenshotDataUrl, "_blank", "noopener,noreferrer");
+        if (win) win.opener = null;
+      });
+    }
+
+    processBody.appendChild(tr);
+  });
+}
+
+function createProcessRecord() {
+  const startedAt = new Date();
+  return {
+    index: processes.length + 1,
+    startedAtIso: startedAt.toISOString(),
+    startedAtLocal: startedAt.toLocaleString(),
+    startedElapsedMs: Math.max(0, Math.floor(currentElapsed())),
+    name: "",
+    screenshotDataUrl: "",
+    screenshotTakenAtIso: "",
+    screenshotTakenAtLocal: "",
+    screenshotFileName: ""
+  };
+}
+
 function setSessionState() {
   const paused = sessionStarted && !running;
   startBtn.disabled = sessionStarted;
   pauseBtn.disabled = !sessionStarted;
   stopBtn.disabled = !sessionStarted;
   pauseBtn.textContent = paused ? "Resume" : "Pause";
-  if (pauseTagBtn) {
-    pauseTagBtn.textContent = paused ? "Resume" : "Pause";
+  processImageBtn.disabled = !sessionStarted || !stream || !currentProcess;
+  nameProcessBtn.disabled = !sessionStarted || !currentProcess;
+  nextProcessBtn.disabled = !sessionStarted || !currentProcess;
+
+  if (sessionStarted) {
+    videoFallback.classList.add("hidden");
+  }
+
+  if (!sessionStarted) {
+    hideNamePanel();
   }
 }
 
-function appendEvent(tag) {
-  const elapsed = currentElapsed();
-  const item = {
-    index: events.length + 1,
-    tag,
-    elapsedMs: elapsed,
-    elapsedLabel: formatElapsed(elapsed),
-    timestampIso: new Date().toISOString(),
-    timestampLocal: new Date().toLocaleString()
-  };
-  events.push(item);
+function hideNamePanel() {
+  nameProcessPanel.classList.add("hidden");
+}
 
-  const tr = document.createElement("tr");
-  tr.innerHTML = `
-    <td>${item.index}</td>
-    <td>${item.tag}</td>
-    <td>${item.elapsedLabel}</td>
-    <td>${item.timestampLocal}</td>
-  `;
-  logBody.prepend(tr);
+function showNamePanel() {
+  if (!currentProcess) {
+    return;
+  }
+
+  processNameInput.value = currentProcess.name;
+  processNameInput.placeholder = `e.g. ${defaultProcessLabel(currentProcess.index)}`;
+  nameProcessPanel.classList.remove("hidden");
+  processNameInput.focus();
+  processNameInput.select();
+}
+
+function startCurrentProcess() {
+  currentProcess = createProcessRecord();
+  processes.push(currentProcess);
+  setProcessLabel();
+  renderProcesses();
+  setSessionState();
 }
 
 function startSession() {
   if (running) return;
+
   const isResume = sessionStarted;
-  if (elapsedBefore === 0 && events.length === 0) {
-    appendEvent("Session Start");
-  } else {
-    appendEvent("Resume");
-  }
   sessionStarted = true;
   running = true;
   startTime = nowMs();
+
+  if (!currentProcess) {
+    startCurrentProcess();
+  }
+
   if (isResume && mediaRecorder) {
     if (mediaRecorder.state === "paused") {
       mediaRecorder.resume();
@@ -94,12 +186,13 @@ function startSession() {
       startRecordingIfNeeded();
     }
   }
+
   setSessionState();
   cancelAnimationFrame(rafId);
   renderTimer();
 }
 
-function pauseSession(logPause = true) {
+function pauseSession() {
   if (!running) return;
   elapsedBefore = currentElapsed();
   running = false;
@@ -108,20 +201,24 @@ function pauseSession(logPause = true) {
   if (mediaRecorder && mediaRecorder.state === "recording") {
     mediaRecorder.pause();
   }
-  if (logPause) appendEvent("Paused");
   setSessionState();
 }
 
 function stopSession() {
-  if (!sessionStarted && elapsedBefore === 0 && events.length === 0) return;
+  if (!sessionStarted && elapsedBefore === 0 && processes.length === 0) return;
+
   if (running) {
     elapsedBefore = currentElapsed();
     running = false;
     cancelAnimationFrame(rafId);
   }
-  appendEvent("Session Stop");
+
   sessionStarted = false;
+  currentProcess = null;
+  hideNamePanel();
+  setProcessLabel();
   setSessionState();
+  renderProcesses();
   renderTimer();
   finalizeRecordingDownload();
 }
@@ -131,15 +228,19 @@ function resetSession() {
   startTime = 0;
   elapsedBefore = 0;
   sessionStarted = false;
+  currentProcess = null;
   cancelAnimationFrame(rafId);
   renderTimer();
+  setProcessLabel();
   setSessionState();
-  events = [];
-  logBody.innerHTML = "";
+  hideNamePanel();
+  processes = [];
+  processBody.innerHTML = "";
 }
 
 async function enableCamera() {
   if (stream) return;
+
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "environment" } },
@@ -156,6 +257,7 @@ async function enableCamera() {
         mediaRecorder.pause();
       }
     }
+    setSessionState();
   } catch {
     videoFallback.classList.remove("hidden");
     cameraBtn.textContent = "Camera Blocked";
@@ -209,69 +311,92 @@ function finalizeRecordingDownload() {
   }
 }
 
+function captureProcessImage() {
+  if (!stream || liveVideo.readyState < 2 || !currentProcess) {
+    return;
+  }
+
+  const width = liveVideo.videoWidth || 1280;
+  const height = liveVideo.videoHeight || 720;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  ctx.drawImage(liveVideo, 0, 0, width, height);
+  const imageUrl = canvas.toDataURL("image/jpeg", 0.9);
+  const capturedAt = new Date();
+  const stamp = capturedAt.toISOString().replace(/[:.]/g, "-");
+
+  currentProcess.screenshotDataUrl = imageUrl;
+  currentProcess.screenshotTakenAtIso = capturedAt.toISOString();
+  currentProcess.screenshotTakenAtLocal = capturedAt.toLocaleString();
+  currentProcess.screenshotFileName = `process-${String(currentProcess.index).padStart(2, "0")}-screenshot-${stamp}.jpg`;
+  renderProcesses();
+}
+
+function commitProcessName() {
+  if (!currentProcess) {
+    return;
+  }
+
+  currentProcess.name = processNameInput.value.trim();
+  setProcessLabel();
+  renderProcesses();
+  hideNamePanel();
+}
+
+function nextProcess() {
+  if (!sessionStarted || !currentProcess) {
+    return;
+  }
+
+  commitProcessName();
+  startCurrentProcess();
+  showNamePanel();
+}
+
 function csvEscape(value) {
   const str = String(value ?? "");
-  if (/[",\n]/.test(str)) {
+  if (/[,"\n]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;
   }
   return str;
 }
 
-function normalizeCategory(tag) {
-  if (tag === "Value Added" || tag === "Non-Value Added" || tag === "Waste" || tag === "Pause") {
-    return tag;
-  }
-  return null;
-}
+function exportCsv() {
+  if (processes.length === 0) return;
 
-function buildCategorySegments() {
-  const totalMs = Math.max(0, Math.floor(currentElapsed()));
-  const ordered = [...events].sort((a, b) => a.elapsedMs - b.elapsedMs || a.index - b.index);
-  const segments = [];
-  let currentCategory = null;
-  let currentStartMs = null;
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const rows = [
+    [
+      "Process #",
+      "Started At Local",
+      "Started At ISO",
+      "Name",
+      "Started Elapsed",
+      "Screenshot Taken",
+      "Screenshot File",
+      "Screenshot Captured At Local",
+      "Screenshot Captured At ISO"
+    ],
+    ...processes.map((process) => [
+      process.index,
+      process.startedAtLocal,
+      process.startedAtIso,
+      process.name,
+      formatElapsed(process.startedElapsedMs),
+      process.screenshotDataUrl ? "Yes" : "No",
+      process.screenshotFileName,
+      process.screenshotTakenAtLocal,
+      process.screenshotTakenAtIso
+    ])
+  ];
 
-  for (const evt of ordered) {
-    const category = normalizeCategory(evt.tag);
-    if (!category) continue;
-
-    if (currentCategory === null) {
-      currentCategory = category;
-      currentStartMs = evt.elapsedMs;
-      continue;
-    }
-
-    if (category !== currentCategory) {
-      const endMs = Math.max(currentStartMs, evt.elapsedMs);
-      segments.push({
-        index: segments.length + 1,
-        category: currentCategory,
-        startMs: currentStartMs,
-        endMs,
-        durationMs: endMs - currentStartMs,
-        startLabel: formatElapsed(currentStartMs),
-        endLabel: formatElapsed(endMs),
-        durationLabel: formatElapsed(endMs - currentStartMs)
-      });
-      currentCategory = category;
-      currentStartMs = evt.elapsedMs;
-    }
-  }
-
-  if (currentCategory !== null && currentStartMs !== null && totalMs >= currentStartMs) {
-    segments.push({
-      index: segments.length + 1,
-      category: currentCategory,
-      startMs: currentStartMs,
-      endMs: totalMs,
-      durationMs: totalMs - currentStartMs,
-      startLabel: formatElapsed(currentStartMs),
-      endLabel: formatElapsed(totalMs),
-      durationLabel: formatElapsed(totalMs - currentStartMs)
-    });
-  }
-
-  return segments;
+  const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+  triggerDownload(csv, `standard-work-processes-${stamp}.csv`, "text/csv;charset=utf-8;");
 }
 
 function triggerDownload(content, filename, mimeType) {
@@ -284,83 +409,36 @@ function triggerDownload(content, filename, mimeType) {
   URL.revokeObjectURL(url);
 }
 
-function exportCsv() {
-  if (events.length === 0) return;
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-
-  const rows = [
-    ["Index", "Tag", "Elapsed", "Timestamp ISO"],
-    ...events.map((e) => [e.index, e.tag, e.elapsedLabel, e.timestampIso])
-  ];
-  const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
-  triggerDownload(csv, `standard-work-events-${stamp}.csv`, "text/csv;charset=utf-8;");
-
-  const segments = buildCategorySegments();
-  if (segments.length > 0) {
-    const segmentRows = [
-      ["Segment", "Category", "Start", "End", "Duration", "StartMs", "EndMs", "DurationMs"],
-      ...segments.map((s) => [
-        s.index,
-        s.category,
-        s.startLabel,
-        s.endLabel,
-        s.durationLabel,
-        s.startMs,
-        s.endMs,
-        s.durationMs
-      ])
-    ];
-    const segmentCsv = segmentRows.map((row) => row.map(csvEscape).join(",")).join("\n");
-    const segmentJson = JSON.stringify({
-      exportedAt: new Date().toISOString(),
-      totalElapsedMs: Math.max(0, Math.floor(currentElapsed())),
-      segments
-    }, null, 2);
-
-    triggerDownload(segmentCsv, `standard-work-segments-${stamp}.csv`, "text/csv;charset=utf-8;");
-    triggerDownload(segmentJson, `standard-work-segments-${stamp}.json`, "application/json;charset=utf-8;");
-  }
-}
-
 startBtn.addEventListener("click", () => {
   startSession();
   startRecordingIfNeeded();
 });
+
 pauseBtn.addEventListener("click", () => {
   if (running) {
-    pauseSession(true);
+    pauseSession();
   } else if (sessionStarted) {
     startSession();
   }
 });
+
 stopBtn.addEventListener("click", stopSession);
 cameraBtn.addEventListener("click", enableCamera);
 exportBtn.addEventListener("click", exportCsv);
-
-tagButtons.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const tag = btn.dataset.tag;
-    if (!tag) return;
-
-    if (tag === "Pause") {
-      if (running) {
-        pauseSession(false);
-        appendEvent("Pause");
-      } else if (sessionStarted) {
-        startSession();
-      } else {
-        appendEvent("Pause Marker");
-      }
-      return;
-    }
-
-    if (!running && (elapsedBefore > 0 || events.length > 0)) {
-      appendEvent(`${tag} (while paused)`);
-      return;
-    }
-
-    appendEvent(tag);
-  });
+processImageBtn.addEventListener("click", captureProcessImage);
+nameProcessBtn.addEventListener("click", showNamePanel);
+nextProcessBtn.addEventListener("click", nextProcess);
+saveProcessNameBtn.addEventListener("click", commitProcessName);
+cancelProcessNameBtn.addEventListener("click", hideNamePanel);
+processNameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    commitProcessName();
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    hideNamePanel();
+  }
 });
 
 window.addEventListener("beforeunload", () => {
@@ -370,5 +448,7 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
+setProcessLabel();
 setSessionState();
 renderTimer();
+renderProcesses();

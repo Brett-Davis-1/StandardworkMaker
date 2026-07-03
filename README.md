@@ -1,13 +1,15 @@
-# Standard Work Creator
+﻿# Standard Work Creator
 
-A lightweight web app for timing a process and tagging activity in real time.
+A lightweight web app for filming a process flow, capturing snapshots, and naming each process in real time.
 
 ## Features
 - Live camera view (optional)
 - Stopwatch with millisecond precision
-- One-tap tags: `Value Added`, `Non-Value Added`, `Waste`, `Pause`
-- Event log with elapsed time + timestamp
-- CSV export for captured events
+- Screenshot capture while filming
+- In-session process naming
+- Next process button to advance to the next process
+- Process table with one row per filmed process
+- CSV export with process start time, name, and screenshot metadata
 
 ## Files
 - `index.html`
@@ -43,7 +45,7 @@ git push -u origin main
 ## Camera Notes (Important)
 - Phone browsers usually require **HTTPS** for camera access.
 - GitHub Pages uses HTTPS, so camera should work there.
-- If camera permission is denied, you can still run timer + tags without video.
+- If camera permission is denied, you can still run timer + naming without video.
 
 ## Local Same-WiFi Option (No GitHub)
 
