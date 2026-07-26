@@ -1,79 +1,93 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Standard Work Creator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#05070b" />
+  <title>Lineflow Time Study</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="app">
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Standard Work Capture</p>
-        <h1>Standard Work Creator</h1>
-        <p class="subhead">Film a process, grab snapshots, and label the work while it is happening.</p>
-      </div>
-      <div class="session-controls">
-        <button id="startBtn" class="btn btn-primary">Start</button>
-        <button id="pauseBtn" class="btn btn-secondary" disabled>Pause</button>
-        <button id="stopBtn" class="btn btn-danger" disabled>Stop</button>
-      </div>
-    </header>
-
-    <section class="display-card">
+  <main class="app camera-app">
+    <section class="camera-screen" aria-label="Lineflow camera">
       <div id="videoWrap" class="video-wrap">
         <video id="liveVideo" autoplay playsinline muted></video>
-        <div id="videoFallback" class="video-fallback hidden">
-          <div class="fallback-title">Camera not active</div>
-          <div class="fallback-sub">Timer mode is running</div>
+        <div id="videoFallback" class="video-fallback">
+          <div class="fallback-icon" aria-hidden="true">◉</div>
+          <div class="fallback-title">Camera is off</div>
+          <div class="fallback-sub">Enable the camera to film this study.</div>
         </div>
-      </div>
-      <div class="timer-panel">
-        <div>
-          <div class="timer-label">Elapsed Time</div>
-          <div id="timer" class="timer">00:00.000</div>
-        </div>
-        <div class="process-summary">
-          <span class="process-summary-label">Current Process</span>
-          <strong id="currentProcess">Process 1</strong>
-        </div>
-        <button id="cameraBtn" class="btn btn-outline">Enable Camera</button>
-      </div>
-    </section>
 
-    <section class="action-card" aria-label="Process Actions">
-      <div class="action-grid">
-        <button id="processImageBtn" class="action action-image" disabled>Screenshot Process</button>
-        <button id="nameProcessBtn" class="action action-name" disabled>Name Process</button>
-        <button id="nextProcessBtn" class="action action-next" disabled>Next Process</button>
-      </div>
-      <div id="nameProcessPanel" class="name-panel hidden" aria-live="polite">
-        <label class="field">
-          <span class="field-label">Process Name</span>
-          <input id="processNameInput" type="text" placeholder="e.g. Assemble bracket" />
+        <div class="screen-gradient screen-gradient-top" aria-hidden="true"></div>
+        <div class="screen-gradient screen-gradient-bottom" aria-hidden="true"></div>
+
+        <header class="camera-topbar">
+          <div class="brand-lockup">
+            <span class="brand-mark" aria-hidden="true">L</span>
+            <span>LINEFLOW</span>
+          </div>
+          <div class="timer-status" aria-live="polite">
+            <span class="record-dot" aria-hidden="true"></span>
+            <span id="timer" class="timer">00:00.000</span>
+          </div>
+          <button id="exportBtn" class="toolbar-btn" type="button">Export</button>
+        </header>
+
+        <div class="camera-tools">
+          <button id="cameraBtn" class="toolbar-btn toolbar-btn-camera" type="button">
+            <span class="toolbar-icon" aria-hidden="true">◉</span>
+            Enable camera
+          </button>
+          <div class="process-badge">
+            <span class="process-badge-label">Current process</span>
+            <strong id="currentProcess">Process 1</strong>
+          </div>
+        </div>
+
+        <label class="process-name-field" for="processNameInput">
+          <span class="process-name-label">Process name</span>
+          <input id="processNameInput" type="text" placeholder="Enter process name" autocomplete="off" />
         </label>
-        <div class="panel-actions">
-          <button id="saveProcessName" class="btn btn-primary" type="button">Save Name</button>
-          <button id="cancelProcessName" class="btn btn-outline" type="button">Cancel</button>
+
+        <div class="idle-state">
+          <p>Set up your shot, then start the time study.</p>
+          <button id="startBtn" class="start-cta" type="button">Start study</button>
+        </div>
+
+        <div class="capture-controls" aria-label="Study controls">
+          <button id="pauseBtn" class="capture-control" type="button" disabled>
+            <span class="control-icon pause-icon" aria-hidden="true"><span></span><span></span></span>
+            <span class="control-label">Pause</span>
+          </button>
+          <button id="stopBtn" class="shutter-control" type="button" disabled aria-label="Stop recording">
+            <span class="shutter-icon" aria-hidden="true"></span>
+            <span class="control-label">Stop</span>
+          </button>
+          <button id="processImageBtn" class="capture-control" type="button" disabled>
+            <span class="control-icon camera-icon" aria-hidden="true"></span>
+            <span class="control-label">Snapshot</span>
+          </button>
+          <button id="nextProcessBtn" class="capture-control" type="button" disabled>
+            <span class="control-icon next-icon" aria-hidden="true"></span>
+            <span class="control-label">Next</span>
+          </button>
         </div>
       </div>
     </section>
 
-    <section class="log-card">
+    <section class="log-card" aria-label="Captured processes">
       <div class="log-header">
         <div>
-          <h2>Processes</h2>
-          <p class="table-subhead">Each row is one filmed process with its start time, name, and screenshot.</p>
+          <p class="eyebrow">Study review</p>
+          <h2>Captured processes</h2>
         </div>
-        <button id="exportBtn" class="btn btn-outline">Export CSV</button>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>#</th>
-              <th>Started At</th>
+              <th>Started at</th>
               <th>Name</th>
               <th>Screenshot</th>
               <th>Preview</th>

@@ -8,13 +8,10 @@ const videoFallback = document.getElementById("videoFallback");
 const processBody = document.getElementById("processBody");
 const exportBtn = document.getElementById("exportBtn");
 const processImageBtn = document.getElementById("processImageBtn");
-const nameProcessBtn = document.getElementById("nameProcessBtn");
 const nextProcessBtn = document.getElementById("nextProcessBtn");
-const nameProcessPanel = document.getElementById("nameProcessPanel");
 const processNameInput = document.getElementById("processNameInput");
-const saveProcessNameBtn = document.getElementById("saveProcessName");
-const cancelProcessNameBtn = document.getElementById("cancelProcessName");
 const currentProcessEl = document.getElementById("currentProcess");
+const cameraApp = document.querySelector(".camera-app");
 
 let running = false;
 let startTime = 0;
@@ -126,25 +123,20 @@ function createProcessRecord() {
 
 function setSessionState() {
   const paused = sessionStarted && !running;
+  cameraApp.classList.toggle("is-active", sessionStarted);
+  cameraApp.classList.toggle("is-running", running);
+  document.body.classList.toggle("study-active", sessionStarted);
   startBtn.disabled = sessionStarted;
   pauseBtn.disabled = !sessionStarted;
   stopBtn.disabled = !sessionStarted;
   pauseBtn.textContent = paused ? "Resume" : "Pause";
   processImageBtn.disabled = !sessionStarted || !stream || !currentProcess;
-  nameProcessBtn.disabled = !sessionStarted || !currentProcess;
   nextProcessBtn.disabled = !sessionStarted || !currentProcess;
-
-  if (sessionStarted) {
-    videoFallback.classList.add("hidden");
-  }
-
-  if (!sessionStarted) {
-    hideNamePanel();
-  }
-}
-
-function hideNamePanel() {
-  nameProcessPanel.classList.add("hidden");
+  processNameInput.disabled = !sessionStarted || !currentProcess;
+  processNameInput.value = currentProcess ? currentProcess.name : "";
+  processNameInput.placeholder = currentProcess
+    ? `Enter ${defaultProcessLabel(currentProcess.index)} name`
+    : "Start a study to name the process";
 }
 
 function showNamePanel() {
@@ -154,7 +146,6 @@ function showNamePanel() {
 
   processNameInput.value = currentProcess.name;
   processNameInput.placeholder = `e.g. ${defaultProcessLabel(currentProcess.index)}`;
-  nameProcessPanel.classList.remove("hidden");
   processNameInput.focus();
   processNameInput.select();
 }
@@ -170,6 +161,7 @@ function startCurrentProcess() {
 function startSession() {
   if (running) return;
 
+  startBtn.blur();
   const isResume = sessionStarted;
   sessionStarted = true;
   running = true;
@@ -190,6 +182,7 @@ function startSession() {
   setSessionState();
   cancelAnimationFrame(rafId);
   renderTimer();
+  window.scrollTo(0, 0);
 }
 
 function pauseSession() {
@@ -215,11 +208,11 @@ function stopSession() {
 
   sessionStarted = false;
   currentProcess = null;
-  hideNamePanel();
   setProcessLabel();
   setSessionState();
   renderProcesses();
   renderTimer();
+  window.scrollTo(0, 0);
   finalizeRecordingDownload();
 }
 
@@ -233,7 +226,6 @@ function resetSession() {
   renderTimer();
   setProcessLabel();
   setSessionState();
-  hideNamePanel();
   processes = [];
   processBody.innerHTML = "";
 }
@@ -345,7 +337,6 @@ function commitProcessName() {
   currentProcess.name = processNameInput.value.trim();
   setProcessLabel();
   renderProcesses();
-  hideNamePanel();
 }
 
 function nextProcess() {
@@ -426,18 +417,18 @@ stopBtn.addEventListener("click", stopSession);
 cameraBtn.addEventListener("click", enableCamera);
 exportBtn.addEventListener("click", exportCsv);
 processImageBtn.addEventListener("click", captureProcessImage);
-nameProcessBtn.addEventListener("click", showNamePanel);
 nextProcessBtn.addEventListener("click", nextProcess);
-saveProcessNameBtn.addEventListener("click", commitProcessName);
-cancelProcessNameBtn.addEventListener("click", hideNamePanel);
+processNameInput.addEventListener("input", () => {
+  if (!currentProcess) return;
+  currentProcess.name = processNameInput.value.trim();
+  setProcessLabel();
+  renderProcesses();
+});
+processNameInput.addEventListener("blur", commitProcessName);
 processNameInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
     commitProcessName();
-  }
-  if (event.key === "Escape") {
-    event.preventDefault();
-    hideNamePanel();
   }
 });
 
