@@ -30,7 +30,10 @@
             <span class="record-dot" aria-hidden="true"></span>
             <span id="timer" class="timer">00:00.000</span>
           </div>
-          <button id="exportBtn" class="toolbar-btn" type="button">Export</button>
+          <div class="toolbar-actions">
+            <button id="exportBtn" class="toolbar-btn" type="button">CSV</button>
+            <button id="exportImagesBtn" class="toolbar-btn" type="button" title="Download captured screenshots" disabled>Images</button>
+          </div>
         </header>
 
         <div class="camera-tools">
@@ -52,6 +55,11 @@
         <div class="idle-state">
           <p>Set up your shot, then start the time study.</p>
           <button id="startBtn" class="start-cta" type="button">Start study</button>
+        </div>
+
+        <div id="captureToast" class="capture-toast" role="status" aria-live="polite" aria-atomic="true">
+          <strong id="captureToastTitle">Snapshot captured</strong>
+          <span id="captureToastDetail">Saved to this process</span>
         </div>
 
         <div class="capture-controls" aria-label="Study controls">

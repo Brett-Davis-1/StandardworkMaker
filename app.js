@@ -3,15 +3,20 @@ const pauseBtn = document.getElementById("pauseBtn");
 const stopBtn = document.getElementById("stopBtn");
 const timerEl = document.getElementById("timer");
 const cameraBtn = document.getElementById("cameraBtn");
+const videoWrap = document.getElementById("videoWrap");
 const liveVideo = document.getElementById("liveVideo");
 const videoFallback = document.getElementById("videoFallback");
 const processBody = document.getElementById("processBody");
 const exportBtn = document.getElementById("exportBtn");
+const exportImagesBtn = document.getElementById("exportImagesBtn");
 const processImageBtn = document.getElementById("processImageBtn");
 const nextProcessBtn = document.getElementById("nextProcessBtn");
 const processNameInput = document.getElementById("processNameInput");
 const currentProcessEl = document.getElementById("currentProcess");
 const cameraApp = document.querySelector(".camera-app");
+const captureToast = document.getElementById("captureToast");
+const captureToastTitle = document.getElementById("captureToastTitle");
+const captureToastDetail = document.getElementById("captureToastDetail");
 
 let running = false;
 let startTime = 0;
@@ -23,6 +28,7 @@ let mediaRecorder = null;
 let recordingChunks = [];
 let processes = [];
 let currentProcess = null;
+let toastTimer = null;
 
 function nowMs() {
   return performance.now();
@@ -121,6 +127,17 @@ function createProcessRecord() {
   };
 }
 
+function screenshotFileNameFor(process) {
+  const label = (process.name.trim() || defaultProcessLabel(process.index))
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase();
+  const capturedStamp = process.screenshotTakenAtIso
+    ? process.screenshotTakenAtIso.replace(/[:.]/g, "-")
+    : new Date().toISOString().replace(/[:.]/g, "-");
+  return `lineflow-process-${String(process.index).padStart(2, "0")}-${label}-${capturedStamp}.jpg`;
+}
+
 function setSessionState() {
   const paused = sessionStarted && !running;
   cameraApp.classList.toggle("is-active", sessionStarted);
@@ -132,6 +149,7 @@ function setSessionState() {
   pauseBtn.textContent = paused ? "Resume" : "Pause";
   processImageBtn.disabled = !sessionStarted || !stream || !currentProcess;
   nextProcessBtn.disabled = !sessionStarted || !currentProcess;
+  exportImagesBtn.disabled = !processes.some((process) => process.screenshotDataUrl);
   processNameInput.disabled = !sessionStarted || !currentProcess;
   processNameInput.value = currentProcess ? currentProcess.name : "";
   processNameInput.placeholder = currentProcess
@@ -320,13 +338,32 @@ function captureProcessImage() {
   ctx.drawImage(liveVideo, 0, 0, width, height);
   const imageUrl = canvas.toDataURL("image/jpeg", 0.9);
   const capturedAt = new Date();
-  const stamp = capturedAt.toISOString().replace(/[:.]/g, "-");
-
   currentProcess.screenshotDataUrl = imageUrl;
   currentProcess.screenshotTakenAtIso = capturedAt.toISOString();
   currentProcess.screenshotTakenAtLocal = capturedAt.toLocaleString();
-  currentProcess.screenshotFileName = `process-${String(currentProcess.index).padStart(2, "0")}-screenshot-${stamp}.jpg`;
+  currentProcess.screenshotFileName = screenshotFileNameFor(currentProcess);
   renderProcesses();
+  setSessionState();
+  showCaptureFeedback(currentProcess);
+}
+
+function showCaptureFeedback(process) {
+  if (navigator.vibrate) {
+    navigator.vibrate([18, 35, 18]);
+  }
+
+  videoWrap.classList.remove("capture-flash");
+  void videoWrap.offsetWidth;
+  videoWrap.classList.add("capture-flash");
+
+  captureToastTitle.textContent = "Snapshot captured";
+  captureToastDetail.textContent = `${process.name.trim() || defaultProcessLabel(process.index)} saved as JPG`;
+  captureToast.classList.add("show");
+
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    captureToast.classList.remove("show");
+  }, 2200);
 }
 
 function commitProcessName() {
@@ -335,6 +372,9 @@ function commitProcessName() {
   }
 
   currentProcess.name = processNameInput.value.trim();
+  if (currentProcess.screenshotDataUrl) {
+    currentProcess.screenshotFileName = screenshotFileNameFor(currentProcess);
+  }
   setProcessLabel();
   renderProcesses();
 }
@@ -390,6 +430,32 @@ function exportCsv() {
   triggerDownload(csv, `standard-work-processes-${stamp}.csv`, "text/csv;charset=utf-8;");
 }
 
+function exportImages() {
+  const screenshots = processes.filter((process) => process.screenshotDataUrl);
+  if (screenshots.length === 0) {
+    showCaptureFeedback({ index: 0, name: "No snapshots" });
+    captureToastTitle.textContent = "No snapshots yet";
+    captureToastDetail.textContent = "Capture a process image first";
+    return;
+  }
+
+  screenshots.forEach((process, index) => {
+    setTimeout(() => {
+      const link = document.createElement("a");
+      link.href = process.screenshotDataUrl;
+      link.download = screenshotFileNameFor(process);
+      link.click();
+    }, index * 150);
+  });
+
+  showCaptureFeedback({
+    index: screenshots.length,
+    name: `${screenshots.length} image${screenshots.length === 1 ? "" : "s"} queued for download`
+  });
+  captureToastTitle.textContent = "Images exported";
+  captureToastDetail.textContent = "Check your Downloads folder";
+}
+
 function triggerDownload(content, filename, mimeType) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -416,11 +482,15 @@ pauseBtn.addEventListener("click", () => {
 stopBtn.addEventListener("click", stopSession);
 cameraBtn.addEventListener("click", enableCamera);
 exportBtn.addEventListener("click", exportCsv);
+exportImagesBtn.addEventListener("click", exportImages);
 processImageBtn.addEventListener("click", captureProcessImage);
 nextProcessBtn.addEventListener("click", nextProcess);
 processNameInput.addEventListener("input", () => {
   if (!currentProcess) return;
   currentProcess.name = processNameInput.value.trim();
+  if (currentProcess.screenshotDataUrl) {
+    currentProcess.screenshotFileName = screenshotFileNameFor(currentProcess);
+  }
   setProcessLabel();
   renderProcesses();
 });

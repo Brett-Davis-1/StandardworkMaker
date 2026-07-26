@@ -231,6 +231,12 @@ video {
   backdrop-filter: blur(14px);
 }
 
+.toolbar-actions {
+  display: inline-flex;
+  justify-self: end;
+  gap: 7px;
+}
+
 .toolbar-btn:hover,
 .toolbar-btn:focus-visible,
 .start-cta:hover,
@@ -377,6 +383,61 @@ video {
   box-shadow: 0 12px 30px rgba(72, 74, 189, 0.36);
   cursor: pointer;
   font-weight: 800;
+}
+
+.capture-toast {
+  position: absolute;
+  right: 18px;
+  bottom: 132px;
+  left: 18px;
+  z-index: 4;
+  display: grid;
+  gap: 3px;
+  width: max-content;
+  max-width: calc(100% - 36px);
+  margin: 0 auto;
+  padding: 10px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 14px;
+  color: white;
+  text-align: center;
+  background: rgba(17, 21, 29, 0.86);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition: opacity 160ms ease, transform 160ms ease;
+  backdrop-filter: blur(14px);
+}
+
+.capture-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.capture-toast strong {
+  font-size: 0.82rem;
+}
+
+.capture-toast span {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.7rem;
+}
+
+.video-wrap.capture-flash::after {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.5);
+  content: "";
+  pointer-events: none;
+  animation: screen-flash 260ms ease-out forwards;
+}
+
+@keyframes screen-flash {
+  from { opacity: 0.72; }
+  to { opacity: 0; }
 }
 
 .capture-controls {
@@ -603,6 +664,41 @@ tr:last-child td {
     gap: 0;
   }
 
+  .camera-topbar {
+    right: 12px;
+    left: 12px;
+    grid-template-columns: auto 1fr auto;
+    gap: 6px;
+  }
+
+  .brand-lockup {
+    gap: 5px;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+  }
+
+  .brand-mark {
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+  }
+
+  .timer-status {
+    gap: 6px;
+    padding: 7px 8px;
+  }
+
+  .timer {
+    min-width: 82px;
+    font-size: 0.78rem;
+  }
+
+  .toolbar-btn {
+    min-height: 36px;
+    padding: 0 8px;
+    font-size: 0.68rem;
+  }
+
   .video-wrap {
     height: 100dvh;
     min-height: 0;
@@ -613,6 +709,14 @@ tr:last-child td {
 
   .log-card {
     margin: 12px;
+  }
+
+  .toolbar-actions {
+    gap: 5px;
+  }
+
+  .toolbar-actions .toolbar-btn {
+    padding: 0 10px;
   }
 }
 
