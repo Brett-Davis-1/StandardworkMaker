@@ -370,6 +370,46 @@ function buildCsv() {
   return rows.map((row) => row.map(csvEscape).join(",")).join("\n");
 }
 
+function createStudyPackage(stamp) {
+  const studyId = globalThis.crypto?.randomUUID
+    ? globalThis.crypto.randomUUID()
+    : `lineflow-${Date.now()}`;
+
+  return {
+    schema: "lineflow-study",
+    schemaVersion: "1.0",
+    studyId,
+    exportedAtIso: new Date().toISOString(),
+    totalElapsedMs: Math.max(0, Math.floor(elapsedBefore)),
+    totalElapsedSeconds: Number((elapsedBefore / 1000).toFixed(3)),
+    csvFile: "study.csv",
+    videoFile: recordedVideoBlob ? "video/study.webm" : null,
+    processes: processes.map((process, index) => {
+      const nextStart = processes[index + 1]?.startedElapsedMs ?? elapsedBefore;
+      const durationMs = Math.max(0, nextStart - process.startedElapsedMs);
+      return {
+        processNumber: (index + 1) * 10,
+        sourceIndex: process.index,
+        name: process.name.trim() || defaultProcessLabel(process.index),
+        startedAtIso: process.startedAtIso,
+        startedAtLocal: process.startedAtLocal,
+        startedElapsedMs: process.startedElapsedMs,
+        durationMs,
+        durationSeconds: Number((durationMs / 1000).toFixed(3)),
+        imageFile: process.screenshotDataUrl
+          ? `images/${screenshotFileNameFor(process)}`
+          : null,
+        imageCapturedAtIso: process.screenshotTakenAtIso || null
+      };
+    }),
+    generator: {
+      name: "LineFlow Time Study",
+      exportFormat: "standardized-study-zip",
+      exportedFileName: `lineflow-study-${stamp}.zip`
+    }
+  };
+}
+
 async function exportStudy() {
   if (processes.length === 0) return;
   if (sessionStarted) {
@@ -395,7 +435,9 @@ async function exportStudy() {
     await recordingStopPromise;
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     const zip = new JSZip();
-    zip.file(`standard-work-processes-${stamp}.csv`, buildCsv());
+    const studyPackage = createStudyPackage(stamp);
+    zip.file("study.json", JSON.stringify(studyPackage, null, 2));
+    zip.file("study.csv", buildCsv());
 
     const imagesFolder = zip.folder("images");
     processes.filter((process) => process.screenshotDataUrl).forEach((process) => {
@@ -406,7 +448,7 @@ async function exportStudy() {
     });
 
     if (recordedVideoBlob) {
-      zip.file(`standard-work-video-${stamp}.webm`, recordedVideoBlob);
+      zip.folder("video").file("study.webm", recordedVideoBlob);
     }
 
     const archive = await zip.generateAsync({
@@ -416,7 +458,7 @@ async function exportStudy() {
     });
     triggerDownload(archive, `lineflow-study-${stamp}.zip`, "application/zip");
     captureToastTitle.textContent = "Study package exported";
-    captureToastDetail.textContent = "CSV, images, and video saved in one ZIP";
+    captureToastDetail.textContent = "Standardized study ZIP is ready";
   } catch (error) {
     console.error("Study export failed", error);
     captureToastTitle.textContent = "Export failed";
