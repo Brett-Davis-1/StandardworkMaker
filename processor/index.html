@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>LineFlow Study Processor</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="page-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">LINEFLOW</p>
+        <h1>Review studies. Generate useful work.</h1>
+        <p class="hero-copy">
+          Open standardized LineFlow ZIP files, correct the study data, and generate
+          an editable Process at a Glance and Yamazumi workbook.
+        </p>
+      </div>
+      <div class="privacy-note">
+        <strong>Local processing</strong>
+        <span>Your ZIP files stay in this browser.</span>
+      </div>
+    </header>
+
+    <section class="panel upload-panel">
+      <div class="section-heading">
+        <div>
+          <p class="step-label">Step 1</p>
+          <h2>Open study ZIP files</h2>
+        </div>
+        <span id="fileCount" class="count-pill">0 studies</span>
+      </div>
+
+      <label id="dropZone" class="drop-zone" for="zipInput">
+        <input id="zipInput" type="file" accept=".zip,application/zip" multiple />
+        <span class="upload-icon" aria-hidden="true">⇧</span>
+        <strong>Select LineFlow ZIP files</strong>
+        <span>Choose one file per operator or station</span>
+      </label>
+      <div id="studyList" class="study-list"></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <p class="step-label">Step 2</p>
+          <h2>Study information</h2>
+        </div>
+      </div>
+      <div class="metadata-grid">
+        <label>
+          <span>Study name</span>
+          <input id="studyName" type="text" value="Current State Line Study" />
+        </label>
+        <label>
+          <span>Product</span>
+          <input id="productName" type="text" placeholder="Product or family" />
+        </label>
+        <label>
+          <span>Takt time (seconds)</span>
+          <input id="taktTime" type="number" min="0.001" step="0.001" placeholder="60" />
+        </label>
+        <label>
+          <span>Observer</span>
+          <input id="observerName" type="text" placeholder="Observer name" />
+        </label>
+      </div>
+    </section>
+
+    <section class="panel review-panel">
+      <div class="section-heading">
+        <div>
+          <p class="step-label">Step 3</p>
+          <h2>Review work elements</h2>
+        </div>
+        <span id="elementCount" class="count-pill">0 elements</span>
+      </div>
+      <p class="section-copy">
+        Correct descriptions and timing, assign each element to an operator or station,
+        add the tool, and exclude accidental rows.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Use</th>
+              <th>Sequence</th>
+              <th>Operator / Station</th>
+              <th>Description</th>
+              <th>Duration (sec)</th>
+              <th>Category</th>
+              <th>Tool</th>
+              <th>Image</th>
+            </tr>
+          </thead>
+          <tbody id="reviewBody">
+            <tr><td colspan="8" class="empty-state">Open a study ZIP to begin.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel generate-panel">
+      <div>
+        <p class="step-label">Step 4</p>
+        <h2>Generate the workbook</h2>
+        <p class="section-copy">
+          Creates editable Study Data, Process at a Glance, and Yamazumi sheets.
+        </p>
+      </div>
+      <button id="generateBtn" class="primary-button" type="button" disabled>
+        Generate Excel Workbook
+      </button>
+    </section>
+
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

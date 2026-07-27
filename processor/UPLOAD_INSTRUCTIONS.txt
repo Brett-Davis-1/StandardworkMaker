@@ -1,0 +1,34 @@
+LINEFLOW PROCESSOR WEBSITE
+
+Recommended GitHub Pages location:
+
+1. Open the StandardworkMaker repository.
+2. Create a new folder named processor.
+3. Upload these three files into that folder:
+   - index.html
+   - app.js
+   - styles.css
+4. Commit the files to main.
+5. Wait 1-2 minutes for GitHub Pages to deploy.
+
+Expected URL:
+
+https://brett-davis-1.github.io/StandardworkMaker/processor/
+
+MVP workflow:
+
+1. Create one standardized ZIP per operator using the updated Time Study app.
+2. Open the processor website on a computer.
+3. Select one or more LineFlow study ZIPs.
+4. Review sequence, station, description, duration, category, tool, and images.
+5. Enter study name, product, takt time, and observer.
+6. Select Generate Excel Workbook.
+
+The workbook contains:
+
+- Study Data
+- Process at a Glance
+- Yamazumi
+
+Processing happens locally in the browser. The ZIP and video are not uploaded
+to a server.
