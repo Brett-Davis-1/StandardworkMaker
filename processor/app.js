@@ -10,6 +10,23 @@ const studyNameInput = document.getElementById("studyName");
 const productNameInput = document.getElementById("productName");
 const taktTimeInput = document.getElementById("taktTime");
 const observerNameInput = document.getElementById("observerName");
+const lineBalanceBtn = document.getElementById("lineBalanceBtn");
+const balanceWorkspace = document.getElementById("balanceWorkspace");
+const closeBalanceBtn = document.getElementById("closeBalanceBtn");
+const addStageBtn = document.getElementById("addStageBtn");
+const connectBtn = document.getElementById("connectBtn");
+const connectionHint = document.getElementById("connectionHint");
+const precedenceCanvas = document.getElementById("precedenceCanvas");
+const precedenceLines = document.getElementById("precedenceLines");
+const stageGrid = document.getElementById("stageGrid");
+const processEditor = document.getElementById("processEditor");
+const selectedProcessName = document.getElementById("selectedProcessName");
+const selectedProcessMeta = document.getElementById("selectedProcessMeta");
+const lockProcessInput = document.getElementById("lockProcessInput");
+const allowedStations = document.getElementById("allowedStations");
+const predecessorList = document.getElementById("predecessorList");
+const balanceSummary = document.getElementById("balanceSummary");
+const confirmBalanceBtn = document.getElementById("confirmBalanceBtn");
 
 const categories = ["Value Added", "Non-Value Added", "Walking", "Waiting", "Other"];
 const categoryColors = {
@@ -22,6 +39,12 @@ const categoryColors = {
 
 let loadedStudies = [];
 let reviewRows = [];
+let balanceItems = [];
+let balanceEdges = [];
+let balanceStageCount = 4;
+let selectedBalanceId = "";
+let connectionSourceId = "";
+let draggedBalanceId = "";
 
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
@@ -212,6 +235,7 @@ function updateCounts() {
   const included = reviewRows.filter((row) => row.include).length;
   elementCount.textContent = `${included} ${included === 1 ? "element" : "elements"}`;
   generateBtn.disabled = included === 0;
+  lineBalanceBtn.disabled = included < 2;
 }
 
 function applyTitleStyle(cell) {
@@ -529,6 +553,210 @@ async function generateWorkbook() {
   }
 }
 
+function balanceItemById(id) {
+  return balanceItems.find((item) => item.id === id);
+}
+
+function initializeBalanceItems() {
+  const includedRows = reviewRows.filter((row) => row.include);
+  const stageSize = Math.max(1, Math.ceil(includedRows.length / balanceStageCount));
+  balanceItems = includedRows.map((row, index) => ({
+    id: `process-${index + 1}`,
+    row,
+    stage: Math.min(balanceStageCount - 1, Math.floor(index / stageSize)),
+    locked: false,
+    allowedStations: [...new Set(includedRows.map((item) => item.station || "Unassigned"))]
+  }));
+  balanceEdges = [];
+  selectedBalanceId = "";
+  connectionSourceId = "";
+}
+
+function renderBalanceWorkspace() {
+  stageGrid.innerHTML = "";
+  stageGrid.style.setProperty("--stage-count", balanceStageCount);
+  for (let stageIndex = 0; stageIndex < balanceStageCount; stageIndex += 1) {
+    const stage = document.createElement("section");
+    stage.className = "precedence-stage";
+    stage.dataset.stage = stageIndex;
+
+    const heading = document.createElement("div");
+    heading.className = "precedence-stage-heading";
+    const title = document.createElement("strong");
+    title.textContent = stageIndex === 0 ? "Starting processes" : `Stage ${stageIndex + 1}`;
+    const subtitle = document.createElement("span");
+    subtitle.textContent = stageIndex === 0 ? "No predecessor required" : "Available after predecessors";
+    heading.append(title, subtitle);
+
+    const body = document.createElement("div");
+    body.className = "precedence-stage-body";
+    body.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      body.classList.add("drag-over");
+    });
+    body.addEventListener("dragleave", () => body.classList.remove("drag-over"));
+    body.addEventListener("drop", (event) => {
+      event.preventDefault();
+      body.classList.remove("drag-over");
+      const item = balanceItemById(draggedBalanceId);
+      if (!item) return;
+      item.stage = stageIndex;
+      renderBalanceWorkspace();
+      selectBalanceItem(item.id);
+    });
+
+    balanceItems.filter((item) => item.stage === stageIndex).forEach((item) => {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "process-card";
+      card.dataset.balanceId = item.id;
+      card.draggable = true;
+      if (item.id === selectedBalanceId) card.classList.add("selected");
+      const sequence = document.createElement("span");
+      sequence.className = "process-sequence";
+      sequence.textContent = `${item.row.sequence}`;
+      const name = document.createElement("strong");
+      name.textContent = item.row.description;
+      const meta = document.createElement("span");
+      meta.className = "process-meta";
+      meta.textContent = `${item.row.durationSeconds.toFixed(1)} sec · ${item.row.station}${item.locked ? " · Locked" : ""}`;
+      card.append(sequence, name, meta);
+      card.addEventListener("dragstart", () => { draggedBalanceId = item.id; });
+      card.addEventListener("click", () => handleBalanceCardClick(item.id));
+      body.appendChild(card);
+    });
+
+    stage.append(heading, body);
+    stageGrid.appendChild(stage);
+  }
+  balanceSummary.textContent = `${balanceItems.length} processes · ${balanceEdges.length} precedence relationship${balanceEdges.length === 1 ? "" : "s"}`;
+  requestAnimationFrame(drawPrecedenceLines);
+}
+
+function handleBalanceCardClick(id) {
+  if (connectionSourceId && connectionSourceId !== id) {
+    addBalanceEdge(connectionSourceId, id);
+    connectionSourceId = "";
+    connectBtn.textContent = "Connect predecessor";
+    connectionHint.textContent = "Relationship added. Select another process or continue editing constraints.";
+  }
+  selectBalanceItem(id);
+}
+
+function selectBalanceItem(id) {
+  selectedBalanceId = id;
+  const item = balanceItemById(id);
+  if (!item) return;
+  processEditor.hidden = false;
+  selectedProcessName.textContent = item.row.description;
+  selectedProcessMeta.textContent = `${item.row.durationSeconds.toFixed(3)} sec · Currently ${item.row.station}`;
+  lockProcessInput.checked = item.locked;
+  connectBtn.disabled = false;
+  allowedStations.innerHTML = "";
+  [...new Set(balanceItems.map((candidate) => candidate.row.station || "Unassigned"))].forEach((station, index) => {
+    const label = document.createElement("label");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = item.allowedStations.includes(station);
+    checkbox.disabled = item.locked;
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) item.allowedStations.push(station);
+      else item.allowedStations = item.allowedStations.filter((name) => name !== station);
+    });
+    const text = document.createElement("span");
+    text.textContent = station;
+    label.append(checkbox, text);
+    allowedStations.appendChild(label);
+  });
+  renderPredecessorList();
+  stageGrid.querySelectorAll(".process-card").forEach((card) => {
+    card.classList.toggle("selected", card.dataset.balanceId === id);
+  });
+}
+
+function renderPredecessorList() {
+  predecessorList.innerHTML = "";
+  const predecessors = balanceEdges.filter((edge) => edge.to === selectedBalanceId);
+  if (predecessors.length === 0) {
+    predecessorList.textContent = "None assigned";
+    return;
+  }
+  predecessors.forEach((edge) => {
+    const predecessor = balanceItemById(edge.from);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "relationship-chip";
+    remove.textContent = `${predecessor?.row.description || "Process"} ×`;
+    remove.addEventListener("click", () => {
+      balanceEdges = balanceEdges.filter((candidate) => candidate !== edge);
+      renderBalanceWorkspace();
+      selectBalanceItem(selectedBalanceId);
+    });
+    predecessorList.appendChild(remove);
+  });
+}
+
+function hasPath(from, to, visited = new Set()) {
+  if (from === to) return true;
+  if (visited.has(from)) return false;
+  visited.add(from);
+  return balanceEdges
+    .filter((edge) => edge.from === from)
+    .some((edge) => hasPath(edge.to, to, visited));
+}
+
+function addBalanceEdge(from, to) {
+  if (balanceEdges.some((edge) => edge.from === from && edge.to === to)) return;
+  if (hasPath(to, from)) {
+    setStatus("That relationship would create a circular precedence loop.", true);
+    return;
+  }
+  const predecessor = balanceItemById(from);
+  const successor = balanceItemById(to);
+  if (predecessor && successor && predecessor.stage >= successor.stage) {
+    if (predecessor.stage === balanceStageCount - 1) balanceStageCount += 1;
+    successor.stage = predecessor.stage + 1;
+  }
+  balanceEdges.push({ from, to });
+}
+
+function drawPrecedenceLines() {
+  const canvasRect = precedenceCanvas.getBoundingClientRect();
+  precedenceLines.innerHTML = `
+    <defs>
+      <marker id="precedenceArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b7bff"></path>
+      </marker>
+    </defs>`;
+  precedenceLines.setAttribute("width", precedenceCanvas.scrollWidth);
+  precedenceLines.setAttribute("height", precedenceCanvas.scrollHeight);
+  balanceEdges.forEach((edge) => {
+    const from = stageGrid.querySelector(`[data-balance-id="${edge.from}"]`);
+    const to = stageGrid.querySelector(`[data-balance-id="${edge.to}"]`);
+    if (!from || !to) return;
+    const fromRect = from.getBoundingClientRect();
+    const toRect = to.getBoundingClientRect();
+    const x1 = fromRect.right - canvasRect.left + precedenceCanvas.scrollLeft;
+    const y1 = fromRect.top + fromRect.height / 2 - canvasRect.top + precedenceCanvas.scrollTop;
+    const x2 = toRect.left - canvasRect.left + precedenceCanvas.scrollLeft;
+    const y2 = toRect.top + toRect.height / 2 - canvasRect.top + precedenceCanvas.scrollTop;
+    const bend = Math.max(30, Math.abs(x2 - x1) / 2);
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`);
+    path.setAttribute("class", "precedence-path");
+    path.setAttribute("marker-end", "url(#precedenceArrow)");
+    precedenceLines.appendChild(path);
+  });
+}
+
+function openBalanceWorkspace() {
+  initializeBalanceItems();
+  balanceWorkspace.hidden = false;
+  renderBalanceWorkspace();
+  balanceWorkspace.scrollIntoView({ behavior: "smooth", block: "start" });
+  setStatus("Line balancing workspace opened. Current workbook generation is unchanged.");
+}
+
 zipInput.addEventListener("change", () => loadStudyFiles(zipInput.files));
 dropZone.addEventListener("dragover", (event) => {
   event.preventDefault();
@@ -541,3 +769,40 @@ dropZone.addEventListener("drop", (event) => {
   loadStudyFiles(event.dataTransfer.files);
 });
 generateBtn.addEventListener("click", generateWorkbook);
+lineBalanceBtn.addEventListener("click", openBalanceWorkspace);
+closeBalanceBtn.addEventListener("click", () => { balanceWorkspace.hidden = true; });
+addStageBtn.addEventListener("click", () => {
+  balanceStageCount += 1;
+  renderBalanceWorkspace();
+});
+connectBtn.addEventListener("click", () => {
+  if (!selectedBalanceId) return;
+  if (connectionSourceId) {
+    connectionSourceId = "";
+    connectBtn.textContent = "Connect predecessor";
+    connectionHint.textContent = "Connection cancelled. Select a process card to continue.";
+    return;
+  }
+  connectionSourceId = selectedBalanceId;
+  connectBtn.textContent = "Cancel connection";
+  connectionHint.textContent = `Now select the process that must happen after ${balanceItemById(selectedBalanceId).row.description}.`;
+});
+lockProcessInput.addEventListener("change", () => {
+  const item = balanceItemById(selectedBalanceId);
+  if (!item) return;
+  item.locked = lockProcessInput.checked;
+  if (item.locked) item.allowedStations = [item.row.station || "Unassigned"];
+  renderBalanceWorkspace();
+  selectBalanceItem(item.id);
+});
+confirmBalanceBtn.addEventListener("click", () => {
+  const invalid = balanceItems.filter((item) => item.allowedStations.length === 0);
+  if (invalid.length) {
+    setStatus(`${invalid.length} process${invalid.length === 1 ? " has" : "es have"} no allowed station.`, true);
+    return;
+  }
+  setStatus("Precedence and movement constraints confirmed. The optimization engine is the next build step.");
+});
+window.addEventListener("resize", () => {
+  if (!balanceWorkspace.hidden) requestAnimationFrame(drawPrecedenceLines);
+});

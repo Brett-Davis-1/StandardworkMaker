@@ -115,6 +115,70 @@
       </button>
     </section>
 
+    <section class="panel generate-panel">
+      <div>
+        <p class="step-label">Step 5</p>
+        <h2>Create optimal future state — Line Balance</h2>
+        <p class="section-copy">
+          Visually define precedence, lock work that cannot move, and set allowed stations.
+        </p>
+      </div>
+      <button id="lineBalanceBtn" class="primary-button" type="button" disabled>
+        Line Balancing
+      </button>
+    </section>
+
+    <section id="balanceWorkspace" class="panel balance-workspace" hidden>
+      <div class="section-heading balance-heading">
+        <div>
+          <p class="step-label">Future State Setup</p>
+          <h2>Define process precedence</h2>
+          <p class="section-copy">
+            Drag cards between stages. Select a card, choose “Connect predecessor,” then select its successor.
+          </p>
+        </div>
+        <button id="closeBalanceBtn" class="secondary-button" type="button">Close</button>
+      </div>
+
+      <div class="balance-toolbar">
+        <button id="addStageBtn" class="secondary-button" type="button">+ Add stage</button>
+        <button id="connectBtn" class="secondary-button" type="button" disabled>Connect predecessor</button>
+        <span id="connectionHint" class="connection-hint">Select a process card to edit its constraints.</span>
+      </div>
+
+      <div id="precedenceCanvas" class="precedence-canvas">
+        <svg id="precedenceLines" class="precedence-lines" aria-hidden="true"></svg>
+        <div id="stageGrid" class="stage-grid"></div>
+      </div>
+
+      <div id="processEditor" class="process-editor" hidden>
+        <div>
+          <span class="editor-label">Selected process</span>
+          <strong id="selectedProcessName"></strong>
+          <span id="selectedProcessMeta" class="editor-meta"></span>
+        </div>
+        <label class="lock-control">
+          <input id="lockProcessInput" type="checkbox" />
+          <span>Lock to current station</span>
+        </label>
+        <fieldset>
+          <legend>Allowed stations</legend>
+          <div id="allowedStations" class="allowed-stations"></div>
+        </fieldset>
+        <div>
+          <span class="editor-label">Direct predecessors</span>
+          <div id="predecessorList" class="predecessor-list"></div>
+        </div>
+      </div>
+
+      <div class="balance-footer">
+        <span id="balanceSummary" class="connection-hint"></span>
+        <button id="confirmBalanceBtn" class="primary-button" type="button">
+          Confirm Precedence
+        </button>
+      </div>
+    </section>
+
     <div id="status" class="status" role="status" aria-live="polite"></div>
   </main>
 
