@@ -134,7 +134,7 @@
           <p class="step-label">Future State Setup</p>
           <h2>Define process precedence</h2>
           <p class="section-copy">
-            Drag cards between stages. Select a card, choose “Connect predecessor,” then select its successor.
+            Drag process cards between stages. Pull an arrow from one process to the process that must happen next.
           </p>
         </div>
         <button id="closeBalanceBtn" class="secondary-button" type="button">Close</button>
@@ -143,7 +143,7 @@
       <div class="balance-toolbar">
         <button id="addStageBtn" class="secondary-button" type="button">+ Add stage</button>
         <button id="connectBtn" class="secondary-button" type="button" disabled>Connect predecessor</button>
-        <span id="connectionHint" class="connection-hint">Select a process card to edit its constraints.</span>
+        <span id="connectionHint" class="connection-hint">Drag an arrow handle, or select a process to edit its constraints.</span>
       </div>
 
       <div id="precedenceCanvas" class="precedence-canvas">
@@ -174,9 +174,40 @@
       <div class="balance-footer">
         <span id="balanceSummary" class="connection-hint"></span>
         <button id="confirmBalanceBtn" class="primary-button" type="button">
-          Confirm Precedence
+          Generate Balanced Line
         </button>
       </div>
+
+      <section id="optimizationResult" class="optimization-result" hidden>
+        <div class="optimization-heading">
+          <div>
+            <p class="step-label">Proposed Future State</p>
+            <h2>Balanced Yamazumi</h2>
+            <p id="optimizationSummary" class="section-copy"></p>
+          </div>
+          <button id="exportFutureBtn" class="secondary-button" type="button">
+            Export Future-State Workbook
+          </button>
+        </div>
+
+        <div id="optimizationMetrics" class="optimization-metrics"></div>
+        <div id="futureYamazumi" class="future-yamazumi" aria-label="Proposed future-state Yamazumi chart"></div>
+
+        <div class="future-assignment-wrap">
+          <table class="future-assignment-table">
+            <thead>
+              <tr>
+                <th>Sequence</th>
+                <th>Process</th>
+                <th>Current operator</th>
+                <th>Proposed operator</th>
+                <th>Duration (sec)</th>
+              </tr>
+            </thead>
+            <tbody id="futureAssignmentBody"></tbody>
+          </table>
+        </div>
+      </section>
     </section>
 
     <div id="status" class="status" role="status" aria-live="polite"></div>

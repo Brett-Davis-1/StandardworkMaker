@@ -27,6 +27,12 @@ const allowedStations = document.getElementById("allowedStations");
 const predecessorList = document.getElementById("predecessorList");
 const balanceSummary = document.getElementById("balanceSummary");
 const confirmBalanceBtn = document.getElementById("confirmBalanceBtn");
+const optimizationResult = document.getElementById("optimizationResult");
+const optimizationSummary = document.getElementById("optimizationSummary");
+const optimizationMetrics = document.getElementById("optimizationMetrics");
+const futureYamazumi = document.getElementById("futureYamazumi");
+const futureAssignmentBody = document.getElementById("futureAssignmentBody");
+const exportFutureBtn = document.getElementById("exportFutureBtn");
 
 const categories = ["Value Added", "Non-Value Added", "Walking", "Waiting", "Other"];
 const categoryColors = {
@@ -45,6 +51,10 @@ let balanceStageCount = 4;
 let selectedBalanceId = "";
 let connectionSourceId = "";
 let draggedBalanceId = "";
+let connectionPointerMoved = false;
+let ignoreNextConnectorClick = false;
+let futureStateSolution = null;
+let glpkPromise = null;
 
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
@@ -265,12 +275,14 @@ function applyThinBorder(cell) {
   };
 }
 
-function addStudyDataSheet(workbook, rows, metadata) {
-  const sheet = workbook.addWorksheet("Study Data", {
+function addStudyDataSheet(workbook, rows, metadata, options = {}) {
+  const sheetName = options.sheetName || "Study Data";
+  const title = options.title || "LineFlow Study Data";
+  const sheet = workbook.addWorksheet(sheetName, {
     views: [{ state: "frozen", ySplit: 6, showGridLines: false }]
   });
   sheet.mergeCells("A1:I2");
-  sheet.getCell("A1").value = "LineFlow Study Data";
+  sheet.getCell("A1").value = title;
   applyTitleStyle(sheet.getCell("A1"));
   sheet.getRow(1).height = 26;
   sheet.getRow(2).height = 12;
@@ -394,8 +406,10 @@ function addPaagSheet(workbook, rows, metadata) {
   };
 }
 
-function addYamazumiSheet(workbook, rows, metadata) {
-  const sheet = workbook.addWorksheet("Yamazumi", {
+function addYamazumiSheet(workbook, rows, metadata, options = {}) {
+  const sheetName = options.sheetName || "Yamazumi";
+  const stateLabel = options.stateLabel || "Current State";
+  const sheet = workbook.addWorksheet(sheetName, {
     views: [{ showGridLines: false }]
   });
   const stations = [...new Set(rows.map((row) => row.station || "Unassigned"))];
@@ -413,7 +427,7 @@ function addYamazumiSheet(workbook, rows, metadata) {
 
   const lastColumn = Math.max(2, stations.length + 1);
   sheet.mergeCells(1, 1, 1, lastColumn);
-  sheet.getCell(1, 1).value = `${metadata.studyName} — Current State Yamazumi`;
+  sheet.getCell(1, 1).value = `${metadata.studyName} — ${stateLabel} Yamazumi`;
   applyTitleStyle(sheet.getCell(1, 1));
   sheet.getRow(1).height = 30;
 
@@ -572,6 +586,40 @@ function initializeBalanceItems() {
   connectionSourceId = "";
 }
 
+function startBalanceConnection(id) {
+  connectionSourceId = id;
+  connectionPointerMoved = false;
+  connectBtn.textContent = "Cancel connection";
+  connectionHint.textContent = `Drag the arrow to the process that must happen after ${balanceItemById(id).row.description}.`;
+  stageGrid.querySelectorAll(".process-card").forEach((card) => {
+    card.classList.toggle("connection-source", card.dataset.balanceId === id);
+  });
+}
+
+function cancelBalanceConnection(message = "Connection cancelled. Select a process card to continue.") {
+  connectionSourceId = "";
+  connectionPointerMoved = false;
+  connectBtn.textContent = "Connect predecessor";
+  connectionHint.textContent = message;
+  precedenceLines.querySelector(".precedence-draft")?.remove();
+  stageGrid.querySelectorAll(".process-card").forEach((card) => card.classList.remove("connection-source"));
+}
+
+function finishBalanceConnection(targetId) {
+  const sourceId = connectionSourceId;
+  if (!sourceId || !targetId || sourceId === targetId) {
+    cancelBalanceConnection();
+    return false;
+  }
+  const added = addBalanceEdge(sourceId, targetId);
+  cancelBalanceConnection(added
+    ? "Relationship added. Drag another arrow or continue editing constraints."
+    : connectionHint.textContent);
+  renderBalanceWorkspace();
+  selectBalanceItem(targetId);
+  return added;
+}
+
 function renderBalanceWorkspace() {
   stageGrid.innerHTML = "";
   stageGrid.style.setProperty("--stage-count", balanceStageCount);
@@ -606,12 +654,16 @@ function renderBalanceWorkspace() {
     });
 
     balanceItems.filter((item) => item.stage === stageIndex).forEach((item) => {
-      const card = document.createElement("button");
-      card.type = "button";
+      const card = document.createElement("div");
       card.className = "process-card";
       card.dataset.balanceId = item.id;
       card.draggable = true;
       if (item.id === selectedBalanceId) card.classList.add("selected");
+      if (item.id === connectionSourceId) card.classList.add("connection-source");
+
+      const cardSelect = document.createElement("button");
+      cardSelect.type = "button";
+      cardSelect.className = "process-card-select";
       const sequence = document.createElement("span");
       sequence.className = "process-sequence";
       sequence.textContent = `${item.row.sequence}`;
@@ -620,9 +672,53 @@ function renderBalanceWorkspace() {
       const meta = document.createElement("span");
       meta.className = "process-meta";
       meta.textContent = `${item.row.durationSeconds.toFixed(1)} sec · ${item.row.station}${item.locked ? " · Locked" : ""}`;
-      card.append(sequence, name, meta);
+      cardSelect.append(sequence, name, meta);
+
+      const connector = document.createElement("button");
+      connector.type = "button";
+      connector.className = "process-connector";
+      connector.textContent = "→";
+      connector.setAttribute("aria-label", `Draw precedence arrow from ${item.row.description}`);
+
       card.addEventListener("dragstart", () => { draggedBalanceId = item.id; });
-      card.addEventListener("click", () => handleBalanceCardClick(item.id));
+      card.addEventListener("dragend", () => {
+        draggedBalanceId = "";
+        requestAnimationFrame(drawPrecedenceLines);
+      });
+      cardSelect.addEventListener("click", () => handleBalanceCardClick(item.id));
+      connector.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        ignoreNextConnectorClick = true;
+        startBalanceConnection(item.id);
+        connector.setPointerCapture?.(event.pointerId);
+        drawPrecedenceLines({ clientX: event.clientX, clientY: event.clientY });
+      });
+      connector.addEventListener("pointermove", (event) => {
+        if (connectionSourceId !== item.id) return;
+        connectionPointerMoved = true;
+        drawPrecedenceLines({ clientX: event.clientX, clientY: event.clientY });
+      });
+      connector.addEventListener("pointerup", (event) => {
+        if (connectionSourceId !== item.id) return;
+        if (!connectionPointerMoved) {
+          drawPrecedenceLines();
+          return;
+        }
+        const target = document.elementFromPoint?.(event.clientX, event.clientY);
+        const targetCard = target?.closest?.(".process-card");
+        finishBalanceConnection(targetCard?.dataset.balanceId || "");
+      });
+      connector.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (ignoreNextConnectorClick) {
+          ignoreNextConnectorClick = false;
+          return;
+        }
+        if (connectionSourceId === item.id) cancelBalanceConnection();
+        else startBalanceConnection(item.id);
+      });
+      card.append(cardSelect, connector);
       body.appendChild(card);
     });
 
@@ -635,10 +731,8 @@ function renderBalanceWorkspace() {
 
 function handleBalanceCardClick(id) {
   if (connectionSourceId && connectionSourceId !== id) {
-    addBalanceEdge(connectionSourceId, id);
-    connectionSourceId = "";
-    connectBtn.textContent = "Connect predecessor";
-    connectionHint.textContent = "Relationship added. Select another process or continue editing constraints.";
+    finishBalanceConnection(id);
+    return;
   }
   selectBalanceItem(id);
 }
@@ -662,6 +756,7 @@ function selectBalanceItem(id) {
     checkbox.addEventListener("change", () => {
       if (checkbox.checked) item.allowedStations.push(station);
       else item.allowedStations = item.allowedStations.filter((name) => name !== station);
+      invalidateFutureState();
     });
     const text = document.createElement("span");
     text.textContent = station;
@@ -689,6 +784,7 @@ function renderPredecessorList() {
     remove.textContent = `${predecessor?.row.description || "Process"} ×`;
     remove.addEventListener("click", () => {
       balanceEdges = balanceEdges.filter((candidate) => candidate !== edge);
+      invalidateFutureState();
       renderBalanceWorkspace();
       selectBalanceItem(selectedBalanceId);
     });
@@ -706,10 +802,18 @@ function hasPath(from, to, visited = new Set()) {
 }
 
 function addBalanceEdge(from, to) {
-  if (balanceEdges.some((edge) => edge.from === from && edge.to === to)) return;
+  if (from === to) {
+    connectionHint.textContent = "A process cannot precede itself.";
+    return false;
+  }
+  if (balanceEdges.some((edge) => edge.from === from && edge.to === to)) {
+    connectionHint.textContent = "That precedence relationship already exists.";
+    return false;
+  }
   if (hasPath(to, from)) {
     setStatus("That relationship would create a circular precedence loop.", true);
-    return;
+    connectionHint.textContent = "That arrow would create a circular relationship, so it was not added.";
+    return false;
   }
   const predecessor = balanceItemById(from);
   const successor = balanceItemById(to);
@@ -718,9 +822,366 @@ function addBalanceEdge(from, to) {
     successor.stage = predecessor.stage + 1;
   }
   balanceEdges.push({ from, to });
+  invalidateFutureState();
+  return true;
 }
 
-function drawPrecedenceLines() {
+function invalidateFutureState() {
+  futureStateSolution = null;
+  optimizationResult.hidden = true;
+}
+
+function getBalanceStations() {
+  return [...new Set(balanceItems.map((item) => item.row.station || "Unassigned"))];
+}
+
+function assignmentVariable(itemIndex, stationIndex) {
+  return `x_${itemIndex}_${stationIndex}`;
+}
+
+function activeVariable(stationIndex) {
+  return `y_${stationIndex}`;
+}
+
+function buildLineBalanceModel(glpk, takt) {
+  const stations = getBalanceStations();
+  const binaries = [];
+  const bounds = [{ name: "max_load", type: glpk.GLP_DB, lb: 0, ub: takt }];
+  const subjectTo = [];
+  const totalWork = balanceItems.reduce((sum, item) => sum + item.row.durationSeconds, 0);
+  const activeStationWeight = (totalWork + takt + 1) * 1000;
+  const objectiveVars = [{ name: "max_load", coef: 1 }];
+
+  stations.forEach((station, stationIndex) => {
+    const y = activeVariable(stationIndex);
+    binaries.push(y);
+    objectiveVars.push({ name: y, coef: activeStationWeight });
+
+    const loadVars = balanceItems.map((item, itemIndex) => ({
+      name: assignmentVariable(itemIndex, stationIndex),
+      coef: item.row.durationSeconds
+    }));
+    subjectTo.push({
+      name: `capacity_${stationIndex}`,
+      vars: [...loadVars, { name: y, coef: -takt }],
+      bnds: { type: glpk.GLP_UP, lb: 0, ub: 0 }
+    });
+    subjectTo.push({
+      name: `max_load_${stationIndex}`,
+      vars: [...loadVars, { name: "max_load", coef: -1 }],
+      bnds: { type: glpk.GLP_UP, lb: 0, ub: 0 }
+    });
+    subjectTo.push({
+      name: `use_active_${stationIndex}`,
+      vars: [
+        ...balanceItems.map((item, itemIndex) => ({ name: assignmentVariable(itemIndex, stationIndex), coef: 1 })),
+        { name: y, coef: -1 }
+      ],
+      bnds: { type: glpk.GLP_LO, lb: 0, ub: 0 }
+    });
+    if (stationIndex > 0) {
+      subjectTo.push({
+        name: `contiguous_${stationIndex}`,
+        vars: [
+          { name: activeVariable(stationIndex), coef: 1 },
+          { name: activeVariable(stationIndex - 1), coef: -1 }
+        ],
+        bnds: { type: glpk.GLP_UP, lb: 0, ub: 0 }
+      });
+    }
+  });
+
+  balanceItems.forEach((item, itemIndex) => {
+    const assignmentVars = stations.map((station, stationIndex) => {
+      const name = assignmentVariable(itemIndex, stationIndex);
+      binaries.push(name);
+      const isAllowed = item.locked
+        ? station === (item.row.station || "Unassigned")
+        : item.allowedStations.includes(station);
+      if (!isAllowed) bounds.push({ name, type: glpk.GLP_FX, lb: 0, ub: 0 });
+      subjectTo.push({
+        name: `link_${itemIndex}_${stationIndex}`,
+        vars: [
+          { name, coef: 1 },
+          { name: activeVariable(stationIndex), coef: -1 }
+        ],
+        bnds: { type: glpk.GLP_UP, lb: 0, ub: 0 }
+      });
+      return { name, coef: 1 };
+    });
+    subjectTo.push({
+      name: `assign_${itemIndex}`,
+      vars: assignmentVars,
+      bnds: { type: glpk.GLP_FX, lb: 1, ub: 1 }
+    });
+  });
+
+  balanceEdges.forEach((edge, edgeIndex) => {
+    const predecessorIndex = balanceItems.findIndex((item) => item.id === edge.from);
+    const successorIndex = balanceItems.findIndex((item) => item.id === edge.to);
+    if (predecessorIndex < 0 || successorIndex < 0) return;
+    const vars = [];
+    stations.forEach((station, stationIndex) => {
+      vars.push({ name: assignmentVariable(predecessorIndex, stationIndex), coef: stationIndex });
+      vars.push({ name: assignmentVariable(successorIndex, stationIndex), coef: -stationIndex });
+    });
+    subjectTo.push({
+      name: `precedence_${edgeIndex}`,
+      vars,
+      bnds: { type: glpk.GLP_UP, lb: 0, ub: 0 }
+    });
+  });
+
+  return {
+    stations,
+    model: {
+      name: "LineFlow_Balance",
+      objective: {
+        direction: glpk.GLP_MIN,
+        name: "minimize_operators_then_peak_load",
+        vars: objectiveVars
+      },
+      subjectTo,
+      bounds,
+      binaries
+    }
+  };
+}
+
+async function getGlpkSolver() {
+  if (!glpkPromise) {
+    glpkPromise = import("https://cdn.jsdelivr.net/npm/glpk.js@5.0.0/dist/index.js")
+      .then((module) => module.default());
+  }
+  return glpkPromise;
+}
+
+function extractLineBalanceSolution(glpk, solveResult, stations, takt) {
+  const vars = solveResult.result.vars || {};
+  const assignmentById = {};
+  const loads = Object.fromEntries(stations.map((station) => [station, 0]));
+  const itemsByStation = Object.fromEntries(stations.map((station) => [station, []]));
+
+  balanceItems.forEach((item, itemIndex) => {
+    const stationIndex = stations.findIndex((station, index) => vars[assignmentVariable(itemIndex, index)] > 0.5);
+    if (stationIndex < 0) throw new Error(`No operator was assigned to ${item.row.description}.`);
+    const station = stations[stationIndex];
+    assignmentById[item.id] = station;
+    loads[station] += item.row.durationSeconds;
+    itemsByStation[station].push(item);
+  });
+
+  const activeStations = stations.filter((station, index) => vars[activeVariable(index)] > 0.5);
+  const totalWork = balanceItems.reduce((sum, item) => sum + item.row.durationSeconds, 0);
+  const maxLoad = Math.max(...activeStations.map((station) => loads[station]), 0);
+  const efficiency = activeStations.length ? totalWork / (activeStations.length * takt) : 0;
+
+  return {
+    status: solveResult.result.status === glpk.GLP_OPT ? "Optimal" : "Feasible",
+    stations,
+    activeStations,
+    assignmentById,
+    loads,
+    itemsByStation,
+    totalWork,
+    maxLoad,
+    efficiency,
+    takt
+  };
+}
+
+function addOptimizationMetric(label, value) {
+  const metric = document.createElement("div");
+  metric.className = "optimization-metric";
+  const labelEl = document.createElement("span");
+  labelEl.textContent = label;
+  const valueEl = document.createElement("strong");
+  valueEl.textContent = value;
+  metric.append(labelEl, valueEl);
+  optimizationMetrics.appendChild(metric);
+}
+
+function renderFutureState(solution) {
+  optimizationResult.hidden = false;
+  optimizationSummary.textContent = `${solution.status} solution using ${solution.activeStations.length} operator${solution.activeStations.length === 1 ? "" : "s"} at a ${solution.takt.toFixed(1)} second takt.`;
+
+  optimizationMetrics.innerHTML = "";
+  addOptimizationMetric("Operators", String(solution.activeStations.length));
+  addOptimizationMetric("Total work", `${solution.totalWork.toFixed(1)} sec`);
+  addOptimizationMetric("Maximum load", `${solution.maxLoad.toFixed(1)} sec`);
+  addOptimizationMetric("Line efficiency", `${(solution.efficiency * 100).toFixed(1)}%`);
+
+  futureYamazumi.innerHTML = "";
+  futureYamazumi.style.setProperty("--future-stations", solution.activeStations.length);
+  solution.activeStations.forEach((station) => {
+    const stationEl = document.createElement("div");
+    stationEl.className = "future-station";
+    const barArea = document.createElement("div");
+    barArea.className = "future-bar-area";
+    const taktLine = document.createElement("div");
+    taktLine.className = "future-takt-line";
+    const taktLabel = document.createElement("span");
+    taktLabel.textContent = `Takt ${solution.takt.toFixed(1)}`;
+    taktLine.appendChild(taktLabel);
+
+    const stack = document.createElement("div");
+    stack.className = "future-stack";
+    stack.style.height = `${Math.min(100, solution.loads[station] / solution.takt * 100)}%`;
+    const stationItems = [...solution.itemsByStation[station]].sort((a, b) => a.stage - b.stage || a.row.sequence - b.row.sequence);
+    stationItems.forEach((item) => {
+      const segment = document.createElement("div");
+      segment.className = "future-segment";
+      segment.style.flexGrow = String(Math.max(item.row.durationSeconds, 0.001));
+      segment.style.setProperty("--segment-color", `#${categoryColors[item.row.category] || categoryColors.Other}`);
+      segment.title = `${item.row.description}: ${item.row.durationSeconds.toFixed(1)} sec (${item.row.category})`;
+      if (item.row.durationSeconds / solution.takt >= 0.055) {
+        segment.textContent = `${item.row.description} · ${item.row.durationSeconds.toFixed(1)}`;
+      }
+      stack.appendChild(segment);
+    });
+    barArea.append(taktLine, stack);
+
+    const name = document.createElement("div");
+    name.className = "future-station-name";
+    name.textContent = station;
+    const total = document.createElement("div");
+    total.className = "future-station-total";
+    total.textContent = `${solution.loads[station].toFixed(1)} sec · ${(solution.loads[station] / solution.takt * 100).toFixed(1)}% of takt`;
+    stationEl.append(barArea, name, total);
+    futureYamazumi.appendChild(stationEl);
+  });
+
+  futureAssignmentBody.innerHTML = "";
+  balanceItems
+    .slice()
+    .sort((a, b) => solution.stations.indexOf(solution.assignmentById[a.id]) - solution.stations.indexOf(solution.assignmentById[b.id]) || a.stage - b.stage || a.row.sequence - b.row.sequence)
+    .forEach((item) => {
+      const row = document.createElement("tr");
+      [
+        item.row.sequence,
+        item.row.description,
+        item.row.station,
+        solution.assignmentById[item.id],
+        item.row.durationSeconds.toFixed(3)
+      ].forEach((value) => {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.appendChild(cell);
+      });
+      futureAssignmentBody.appendChild(row);
+    });
+  optimizationResult.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function optimizeLineBalance() {
+  const takt = Number(taktTimeInput.value) || 0;
+  if (takt <= 0) {
+    setStatus("Enter a takt time greater than zero before balancing the line.", true);
+    return;
+  }
+  const tooLong = balanceItems.filter((item) => item.row.durationSeconds > takt);
+  if (tooLong.length) {
+    setStatus(`${tooLong[0].row.description} is longer than takt and cannot be assigned without splitting the work element.`, true);
+    return;
+  }
+  const noStations = balanceItems.filter((item) => item.allowedStations.length === 0);
+  if (noStations.length) {
+    setStatus(`${noStations.length} process${noStations.length === 1 ? " has" : "es have"} no allowed operator.`, true);
+    return;
+  }
+
+  confirmBalanceBtn.disabled = true;
+  confirmBalanceBtn.textContent = "Optimizing…";
+  setStatus("Solving the future-state line balance locally in your browser…");
+  try {
+    const glpk = await getGlpkSolver();
+    const { model, stations } = buildLineBalanceModel(glpk, takt);
+    const solveResult = await glpk.solve(model, {
+      msglev: glpk.GLP_MSG_OFF,
+      presol: true,
+      mipgap: 0.001,
+      tmlim: 15
+    });
+    if (![glpk.GLP_OPT, glpk.GLP_FEAS].includes(solveResult.result.status)) {
+      throw new Error("No feasible assignment satisfies the current takt, precedence, locks, and allowed-operator rules.");
+    }
+    futureStateSolution = extractLineBalanceSolution(glpk, solveResult, stations, takt);
+    renderFutureState(futureStateSolution);
+    setStatus("Balanced future state generated. Review the Yamazumi and assignments below.");
+  } catch (error) {
+    console.error(error);
+    invalidateFutureState();
+    setStatus(`Line balancing failed: ${error.message}`, true);
+  } finally {
+    confirmBalanceBtn.disabled = false;
+    confirmBalanceBtn.textContent = "Generate Balanced Line";
+  }
+}
+
+async function generateFutureStateWorkbook() {
+  if (!futureStateSolution) return;
+  const metadata = {
+    studyName: studyNameInput.value.trim() || "LineFlow Study",
+    product: productNameInput.value.trim(),
+    taktTime: futureStateSolution.takt,
+    observer: observerNameInput.value.trim()
+  };
+  const currentRows = balanceItems
+    .map((item) => ({ ...item.row }))
+    .sort((a, b) => a.station.localeCompare(b.station) || a.sequence - b.sequence);
+  const futureRows = balanceItems
+    .map((item) => ({ ...item.row, station: futureStateSolution.assignmentById[item.id] }))
+    .sort((a, b) => a.station.localeCompare(b.station) || a.sequence - b.sequence);
+
+  exportFutureBtn.disabled = true;
+  exportFutureBtn.textContent = "Generating…";
+  setStatus("Building the current- and future-state Excel workbook…");
+  try {
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "LineFlow";
+    workbook.created = new Date();
+    workbook.modified = new Date();
+    workbook.subject = "Optimized Line Balance";
+
+    addStudyDataSheet(workbook, currentRows, metadata, {
+      sheetName: "Current State Data",
+      title: "LineFlow Current State Data"
+    });
+    addPaagSheet(workbook, currentRows, metadata);
+    addYamazumiSheet(workbook, currentRows, metadata, {
+      sheetName: "Current State Yamazumi",
+      stateLabel: "Current State"
+    });
+    addStudyDataSheet(workbook, futureRows, metadata, {
+      sheetName: "Future State Data",
+      title: "LineFlow Proposed Future State Data"
+    });
+    addYamazumiSheet(workbook, futureRows, metadata, {
+      sheetName: "Future State Yamazumi",
+      stateLabel: "Proposed Future State"
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${safeFileName(metadata.studyName)}-future-state-line-balance.xlsx`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setStatus("Future-state workbook generated. Check your Downloads folder.");
+  } catch (error) {
+    console.error(error);
+    setStatus(`Future-state workbook generation failed: ${error.message}`, true);
+  } finally {
+    exportFutureBtn.disabled = false;
+    exportFutureBtn.textContent = "Export Future-State Workbook";
+  }
+}
+
+function drawPrecedenceLines(pointer = null) {
   const canvasRect = precedenceCanvas.getBoundingClientRect();
   precedenceLines.innerHTML = `
     <defs>
@@ -747,10 +1208,25 @@ function drawPrecedenceLines() {
     path.setAttribute("marker-end", "url(#precedenceArrow)");
     precedenceLines.appendChild(path);
   });
+  if (pointer && connectionSourceId) {
+    const from = stageGrid.querySelector(`[data-balance-id="${connectionSourceId}"]`);
+    if (!from) return;
+    const fromRect = from.getBoundingClientRect();
+    const x1 = fromRect.right - canvasRect.left + precedenceCanvas.scrollLeft;
+    const y1 = fromRect.top + fromRect.height / 2 - canvasRect.top + precedenceCanvas.scrollTop;
+    const x2 = pointer.clientX - canvasRect.left + precedenceCanvas.scrollLeft;
+    const y2 = pointer.clientY - canvasRect.top + precedenceCanvas.scrollTop;
+    const bend = Math.max(30, Math.abs(x2 - x1) / 2);
+    const draft = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    draft.setAttribute("d", `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`);
+    draft.setAttribute("class", "precedence-path precedence-draft");
+    precedenceLines.appendChild(draft);
+  }
 }
 
 function openBalanceWorkspace() {
   initializeBalanceItems();
+  invalidateFutureState();
   balanceWorkspace.hidden = false;
   renderBalanceWorkspace();
   balanceWorkspace.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -778,31 +1254,25 @@ addStageBtn.addEventListener("click", () => {
 connectBtn.addEventListener("click", () => {
   if (!selectedBalanceId) return;
   if (connectionSourceId) {
-    connectionSourceId = "";
-    connectBtn.textContent = "Connect predecessor";
-    connectionHint.textContent = "Connection cancelled. Select a process card to continue.";
+    cancelBalanceConnection();
     return;
   }
-  connectionSourceId = selectedBalanceId;
-  connectBtn.textContent = "Cancel connection";
-  connectionHint.textContent = `Now select the process that must happen after ${balanceItemById(selectedBalanceId).row.description}.`;
+  startBalanceConnection(selectedBalanceId);
 });
 lockProcessInput.addEventListener("change", () => {
   const item = balanceItemById(selectedBalanceId);
   if (!item) return;
   item.locked = lockProcessInput.checked;
   if (item.locked) item.allowedStations = [item.row.station || "Unassigned"];
+  invalidateFutureState();
   renderBalanceWorkspace();
   selectBalanceItem(item.id);
 });
-confirmBalanceBtn.addEventListener("click", () => {
-  const invalid = balanceItems.filter((item) => item.allowedStations.length === 0);
-  if (invalid.length) {
-    setStatus(`${invalid.length} process${invalid.length === 1 ? " has" : "es have"} no allowed station.`, true);
-    return;
-  }
-  setStatus("Precedence and movement constraints confirmed. The optimization engine is the next build step.");
-});
+confirmBalanceBtn.addEventListener("click", optimizeLineBalance);
+exportFutureBtn.addEventListener("click", generateFutureStateWorkbook);
 window.addEventListener("resize", () => {
+  if (!balanceWorkspace.hidden) requestAnimationFrame(drawPrecedenceLines);
+});
+precedenceCanvas.addEventListener("scroll", () => {
   if (!balanceWorkspace.hidden) requestAnimationFrame(drawPrecedenceLines);
 });
