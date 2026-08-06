@@ -59,7 +59,7 @@
           <input id="productName" type="text" placeholder="Product or family" />
         </label>
         <label>
-          <span>Takt time (seconds)</span>
+          <span>Required takt time (seconds, optional)</span>
           <input id="taktTime" type="number" min="0.001" step="0.001" placeholder="60" />
         </label>
         <label>
@@ -120,7 +120,7 @@
         <p class="step-label">Step 5</p>
         <h2>Create optimal future state — Line Balance</h2>
         <p class="section-copy">
-          Visually define precedence, lock work that cannot move, and set allowed stations.
+          Visually define precedence and constraints, then calculate the minimum takt for any future station count.
         </p>
       </div>
       <button id="lineBalanceBtn" class="primary-button" type="button" disabled>
@@ -173,21 +173,49 @@
 
       <div class="balance-footer">
         <span id="balanceSummary" class="connection-hint"></span>
-        <button id="confirmBalanceBtn" class="primary-button" type="button">
-          Generate Balanced Line
-        </button>
+        <div class="balance-run-controls">
+          <label class="future-station-control" for="minimumStationCount">
+            <span>Minimum stations</span>
+            <input id="minimumStationCount" type="number" min="1" step="1" value="1" />
+          </label>
+          <label class="future-station-control" for="maximumStationCount">
+            <span>Maximum stations</span>
+            <input id="maximumStationCount" type="number" min="1" step="1" value="1" />
+          </label>
+          <span class="connection-hint">LineFlow will calculate and compare every station count in the range.</span>
+          <button id="confirmBalanceBtn" class="primary-button" type="button">
+            Calculate Scenarios
+          </button>
+        </div>
       </div>
 
       <section id="optimizationResult" class="optimization-result" hidden>
         <div class="optimization-heading">
           <div>
-            <p class="step-label">Proposed Future State</p>
-            <h2>Balanced Yamazumi</h2>
+            <p class="step-label">Future-State Scenarios</p>
+            <h2>Station-count comparison</h2>
             <p id="optimizationSummary" class="section-copy"></p>
           </div>
-          <button id="exportFutureBtn" class="secondary-button" type="button">
-            Export Future-State Workbook
+          <button id="exportFutureBtn" class="secondary-button" type="button" disabled>
+            Export Scenario Workbook
           </button>
+        </div>
+
+        <div class="scenario-comparison-wrap">
+          <table class="scenario-comparison-table">
+            <thead>
+              <tr>
+                <th>Stations</th>
+                <th>Minimum takt</th>
+                <th>Efficiency</th>
+                <th>Bottleneck</th>
+                <th>Required takt</th>
+                <th>Precedence</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="scenarioComparisonBody"></tbody>
+          </table>
         </div>
 
         <div id="optimizationMetrics" class="optimization-metrics"></div>
@@ -197,7 +225,7 @@
           <table class="future-assignment-table">
             <thead>
               <tr>
-                <th>Sequence</th>
+                <th>Future sequence</th>
                 <th>Process</th>
                 <th>Current operator</th>
                 <th>Proposed operator</th>
