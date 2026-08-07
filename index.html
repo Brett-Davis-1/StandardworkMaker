@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="LineFlow turns time study data into balanced manufacturing line recommendations." />
+  <title>LineFlow — From Time Study to Line Balance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="#top" aria-label="LineFlow home">
+        <span class="brand-mark">
+          <span></span><span></span><span></span>
+        </span>
+        <span>LineFlow</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#how">How it works</a>
+        <a href="#demo">Demo</a>
+        <a href="#about">About</a>
+      </nav>
+      <a class="button button-small button-outline" href="#try">Try LineFlow</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero section">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <div class="eyebrow">BUILT FOR MANUFACTURING ENGINEERS</div>
+          <h1>Go from time study to <span>balanced line</span> in minutes.</h1>
+          <p class="hero-text">
+            Capture real work, map precedence relationships, and automatically test line-balance scenarios — without rebuilding everything in spreadsheets.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#demo">▶ Watch 2-minute demo</a>
+            <a class="button button-ghost" href="#try">Try the workflow →</a>
+          </div>
+          <div class="hero-proof">
+            <span>✓ Time study capture</span>
+            <span>✓ Precedence logic</span>
+            <span>✓ Automated line balancing</span>
+          </div>
+        </div>
+
+        <div class="product-window" aria-label="LineFlow product mockup">
+          <div class="window-top">
+            <div class="window-dots"><i></i><i></i><i></i></div>
+            <div class="window-title">LineFlow / Line Balance</div>
+            <div class="window-action">Export ↓</div>
+          </div>
+          <div class="window-body">
+            <div class="mini-sidebar">
+              <div class="mini-logo">LF</div>
+              <span class="active"></span>
+              <span></span><span></span><span></span>
+            </div>
+            <div class="mock-content">
+              <div class="mock-heading">
+                <div>
+                  <small>Automotive Assembly Demo</small>
+                  <strong>Optimization Results</strong>
+                </div>
+                <div class="status">Optimized</div>
+              </div>
+              <div class="kpi-row">
+                <div><small>Stations</small><b>5</b></div>
+                <div><small>Takt Time</small><b>42.8s</b></div>
+                <div><small>Efficiency</small><b>91%</b></div>
+              </div>
+              <div class="bars">
+                <div class="bar-row"><label>Station 1</label><span style="--w:91%"></span><em>39.1s</em></div>
+                <div class="bar-row"><label>Station 2</label><span style="--w:96%"></span><em>41.0s</em></div>
+                <div class="bar-row"><label>Station 3</label><span style="--w:87%"></span><em>37.2s</em></div>
+                <div class="bar-row"><label>Station 4</label><span style="--w:99%"></span><em>42.4s</em></div>
+                <div class="bar-row"><label>Station 5</label><span style="--w:94%"></span><em>40.1s</em></div>
+              </div>
+              <div class="takt-line">Target takt: 42.8 seconds</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="logo-strip">
+      <div class="container strip-inner">
+        <span>TIME STUDY</span>
+        <i>→</i>
+        <span>PROCESS DATA</span>
+        <i>→</i>
+        <span>PRECEDENCE</span>
+        <i>→</i>
+        <span>LINE BALANCE</span>
+      </div>
+    </section>
+
+    <section id="demo" class="section demo-section">
+      <div class="container">
+        <div class="section-heading centered">
+          <div class="eyebrow">SEE THE FULL WORKFLOW</div>
+          <h2>One study. One workflow. One answer.</h2>
+          <p>Use a real manufacturing example to show the product from stopwatch to optimized station assignments.</p>
+        </div>
+        <div class="video-shell">
+          <div class="video-placeholder">
+            <div class="play">▶</div>
+            <strong>2-Minute LineFlow Demo</strong>
+            <span>Drop your finished demo video here later</span>
+          </div>
+          <div class="video-caption">
+            <span>Suggested story:</span>
+            Observe → Capture → Define precedence → Optimize → Export
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how" class="section how-section">
+      <div class="container">
+        <div class="section-heading">
+          <div class="eyebrow">HOW IT WORKS</div>
+          <h2>From the floor to a better balance.</h2>
+        </div>
+        <div class="steps-grid">
+          <article class="step-card">
+            <div class="step-number">01</div>
+            <div class="step-icon">⏱</div>
+            <h3>Capture the work</h3>
+            <p>Run a time study and record process times, categories, photos, and notes.</p>
+          </article>
+          <article class="step-card">
+            <div class="step-number">02</div>
+            <div class="step-icon">↗</div>
+            <h3>Upload once</h3>
+            <p>Turn the study into structured process data and visual manufacturing outputs.</p>
+          </article>
+          <article class="step-card">
+            <div class="step-number">03</div>
+            <div class="step-icon">⇄</div>
+            <h3>Set precedence</h3>
+            <p>Define what must happen first and what work can occur in parallel.</p>
+          </article>
+          <article class="step-card">
+            <div class="step-number">04</div>
+            <div class="step-icon">▥</div>
+            <h3>Optimize the line</h3>
+            <p>Test station counts automatically and export the best achievable takt for each scenario.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="problem-section section">
+      <div class="container split">
+        <div>
+          <div class="eyebrow">WHY LINEFLOW</div>
+          <h2>Stop stitching the analysis together by hand.</h2>
+          <p>
+            Traditional line balancing often means a stopwatch, handwritten notes, photos, Excel cleanup, Yamazumi charts, precedence diagrams, and repeated Solver runs.
+          </p>
+          <p>
+            LineFlow is designed to connect those steps into one continuous engineering workflow.
+          </p>
+        </div>
+        <div class="before-after">
+          <div class="ba-card muted">
+            <span>BEFORE</span>
+            <b>5+ disconnected steps</b>
+            <p>Paper → CSV → Excel → diagrams → optimization</p>
+          </div>
+          <div class="arrow-down">↓</div>
+          <div class="ba-card highlight">
+            <span>WITH LINEFLOW</span>
+            <b>One connected workflow</b>
+            <p>Study → relationships → optimized line</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="testimonial-section section">
+      <div class="container">
+        <div class="section-heading centered">
+          <div class="eyebrow">EARLY FEEDBACK</div>
+          <h2>Built around the way engineers actually work.</h2>
+        </div>
+        <div class="testimonials">
+          <blockquote>
+            <p>“Replace this with the strongest quote from your first manufacturing engineer demo.”</p>
+            <footer>
+              <div class="avatar">ME</div>
+              <div><b>Manufacturing Engineer</b><span>Early product tester</span></div>
+            </footer>
+          </blockquote>
+          <blockquote>
+            <p>“A second quote could focus on time saved, clarity, or the line-balancing output.”</p>
+            <footer>
+              <div class="avatar">IE</div>
+              <div><b>Industrial Engineer</b><span>Early product tester</span></div>
+            </footer>
+          </blockquote>
+        </div>
+      </div>
+    </section>
+
+    <section id="about" class="section about-section">
+      <div class="container split">
+        <div class="founder-card">
+          <div class="founder-photo">
+            <span>FOUNDER<br>PHOTO</span>
+          </div>
+          <div class="founder-label">
+            <b>Built by an engineer, for engineers.</b>
+            <span>Replace with your photo later.</span>
+          </div>
+        </div>
+        <div>
+          <div class="eyebrow">WHY I BUILT IT</div>
+          <h2>The tool I wanted on the manufacturing floor.</h2>
+          <p>
+            LineFlow started from a simple frustration: collecting good time-study data was only the beginning. Turning that data into usable standard work, Yamazumi analysis, precedence relationships, and a defensible line balance still took too much manual effort.
+          </p>
+          <p>
+            The goal is simple — help manufacturing teams spend less time formatting the analysis and more time improving the process.
+          </p>
+          <a href="#try" class="text-link">See what LineFlow can do →</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="try" class="section cta-section">
+      <div class="container cta-card">
+        <div>
+          <div class="eyebrow light">READY TO TEST IT?</div>
+          <h2>Bring a process. See what LineFlow finds.</h2>
+          <p>Connect these buttons to your existing Time Study and Processor web apps when you're ready.</p>
+        </div>
+        <div class="cta-actions">
+          <a class="button button-white" href="#" onclick="return demoLink(event)">Start a Time Study</a>
+          <a class="button button-dark" href="#" onclick="return demoLink(event)">Upload Existing Study</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-inner">
+      <a class="brand" href="#top">
+        <span class="brand-mark"><span></span><span></span><span></span></span>
+        <span>LineFlow</span>
+      </a>
+      <span>Manufacturing improvement, from observation to optimization.</span>
+      <span>© 2026 LineFlow</span>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast">Placeholder link — connect this to your live app.</div>
+
+  <script src="script.js"></script>
+</body>
+</html>
