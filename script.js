@@ -6,3 +6,4 @@ function demoLink(event) {
   window.__toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
   return false;
 }
+
