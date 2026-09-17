@@ -1,0 +1,118 @@
+/* Consulting homepage: simple content with restrained visual structure. */
+:root {
+  color-scheme: light;
+  --ink: #183347;
+  --body: #4c5b66;
+  --blue: #28618b;
+  --line: #dce3e8;
+  --tint: #f3f6f8;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #fff;
+  color: var(--body);
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  font-size: 17px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+.container { width: min(1040px, calc(100% - 64px)); margin: 0 auto; }
+header { border-top: 4px solid var(--blue); border-bottom: 1px solid var(--line); }
+.navigation { display: flex; justify-content: space-between; align-items: center; gap: 28px; padding: 21px 0; }
+.wordmark { color: var(--ink); font-size: 25px; line-height: 1.15; font-weight: 700; letter-spacing: -.6px; text-decoration: none; }
+.wordmark span { display: block; margin-top: 5px; color: var(--body); font-size: 12px; font-weight: 400; letter-spacing: .15px; }
+nav { display: flex; flex-wrap: wrap; gap: 26px; }
+nav a { font-size: 14px; text-decoration: none; color: var(--body); padding: 8px 0; }
+h1, h2, h3 { color: var(--ink); line-height: 1.18; font-weight: 650; }
+h1 { font-size: clamp(38px, 4.6vw, 58px); letter-spacing: -1.8px; margin: 0 0 25px; max-width: 1000px; }
+h1 span { color: var(--blue); }
+h2 { font-size: 32px; letter-spacing: -.7px; margin: 0 0 20px; }
+h3 { font-size: 18px; margin: 0 0 13px; }
+p { margin: 0 0 20px; }
+a { color: var(--blue); text-decoration-thickness: 1px; text-underline-offset: 4px; overflow-wrap: anywhere; }
+a:hover { color: #14374f; text-decoration: underline; }
+a:focus-visible { outline: 2px solid var(--blue); outline-offset: 5px; }
+.skip-link { position: absolute; left: 20px; top: -100px; background: white; padding: 10px; z-index: 2; }
+.skip-link:focus { top: 10px; }
+.hero { padding: 66px 0 58px; background: #f8fafb; border-bottom: 1px solid var(--line); }
+.eyebrow { color: var(--blue); font-size: 12px; font-weight: 650; letter-spacing: 1.1px; text-transform: uppercase; margin: 0 0 16px; }
+.intro { max-width: 750px; font-size: 19px; line-height: 1.7; margin-bottom: 27px; }
+.button { display: inline-block; padding: 12px 24px; border: 1px solid var(--blue); border-radius: 5px; color: white; background: var(--blue); font-size: 15px; font-weight: 600; text-decoration: none; }
+.button:hover { background: #1d4b6c; color: #fff; text-decoration: none; }
+.hero-note { margin: 12px 0 0; font-size: 13px; }
+.section { padding: 62px 0; }
+.tools { display: grid; grid-template-columns: .85fr 1.3fr; gap: 72px; }
+.scope { display: block; }
+.scope h2 { margin-bottom: 22px; }
+.scope .work-list { max-width: 850px; }
+.work-list { margin: 0; padding-left: 22px; }
+.work-list li { padding: 5px 0 5px 5px; }
+li::marker { color: var(--blue); }
+.about { background: var(--tint); border-block: 1px solid var(--line); }
+.profile { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 54px; align-items: start; }
+.profile .headshot { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5; object-fit: cover; object-position: center 30%; border-radius: 5px; }
+.profile h2 { font-size: 34px; margin-bottom: 17px; }
+.profile p:not(.eyebrow) { font-size: 16px; }
+.profile-contact { display: grid; gap: 3px; font-style: normal; font-size: 16px; }
+.background-details { margin-top: 40px; padding-top: 28px; border-top: 1px solid #cdd8df; }
+.background-details h3 { font-size: 25px; margin-bottom: 22px; letter-spacing: -.4px; }
+.credential-grid { list-style: none; padding: 0; margin: 0 0 34px; display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 24px; }
+.credential-grid li + li { border-left: 1px solid #cdd8df; padding-left: 26px; }
+.credential-grid strong { display: block; color: var(--ink); font-weight: 600; font-size: 16px; }
+.credential-grid span { display: block; font-size: 14px; }
+.company-grid { list-style: none; padding: 0; margin: 0 0 25px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.company-card { background: #fff; border: 1px solid #d3dfe7; border-radius: 5px; padding: 22px 15px 18px; text-align: center; }
+.company-logo { display: flex; align-items: center; justify-content: center; height: 100px; margin-bottom: 17px; }
+.company-logo img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.company-logo .husco-logo { width: 100px; }
+.company-logo .xes-logo { width: 110px; height: auto; }
+.company-card h4 { margin: 0; color: var(--ink); font-size: 15px; font-weight: 600; line-height: 1.4; }
+.text-link { font-size: 15px; font-weight: 600; }
+.tools p { margin-bottom: 15px; }
+.contact { background: #19384e; color: #d9e4ed; }
+.contact h2 { color: #fff; }
+.contact-layout { display: grid; grid-template-columns: 1.25fr .9fr; gap: 70px; align-items: center; }
+.contact p { margin: 0; font-size: 16px; max-width: 550px; }
+.contact address { display: grid; gap: 12px; font-style: normal; }
+.contact a { color: #fff; font-size: 16px; }
+footer { padding: 20px 0; font-size: 12px; color: #596875; background: #f8fafb; }
+@media (max-width: 850px) {
+  .tools { gap: 36px; grid-template-columns: .85fr 1.2fr; }
+  .profile { grid-template-columns: 240px minmax(0, 1fr); gap: 32px; }
+  .company-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .contact-layout { grid-template-columns: 1fr; gap: 28px; }
+}
+@media (max-width: 650px) {
+  body { font-size: 16px; }
+  .container { width: calc(100% - 40px); }
+  .navigation { flex-wrap: wrap; gap: 13px; padding: 18px 0; }
+  nav { gap: 22px; }
+  nav a { font-size: 13px; }
+  .hero { padding: 42px 0; }
+  .desktop-break { display: none; }
+  h1 { font-size: 38px; letter-spacing: -1.1px; }
+  h2 { font-size: 28px; }
+  .intro { font-size: 18px; }
+  .section { padding: 42px 0; }
+  .tools, .profile { grid-template-columns: 1fr; gap: 24px; }
+  .profile .headshot { max-width: 340px; aspect-ratio: 4 / 3; }
+  .credential-grid { grid-template-columns: 1fr; gap: 16px; }
+  .credential-grid li + li { border-left: 0; padding-left: 0; }
+  .background-details { margin-top: 32px; }
+  .company-card { padding: 18px 12px; }
+  .eyebrow { font-size: 11px; }
+}
+@media (max-width: 380px) {
+  .company-grid { grid-template-columns: 1fr; }
+}
+@media print {
+  body { font-size: 11pt; }
+  .container { width: 100%; }
+  .navigation, .skip-link, .button, .hero-note { display: none; }
+  .hero, .section { padding: 20px 0; background: #fff; color: #222; }
+  h1 { font-size: 28pt; }
+  h2 { font-size: 20pt; }
+  .contact h2, .contact a { color: #222; }
+  .profile { break-inside: avoid; }
+}

@@ -1,262 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="LineFlow combines manufacturing engineering consulting with purpose-built software for time studies, standard work, and line balancing." />
-  <title>LineFlow — From Time Study to Line Balance</title>
-  <link rel="canonical" href="https://lineflowmfg.com/" />
-  <link rel="icon" type="image/png" sizes="512x512" href="/favicon.png" />
-  <link rel="apple-touch-icon" href="/favicon.png" />
-  <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="LineFlow" />
-  <meta property="og:title" content="LineFlow — Define Your Current State. Optimize Your Future State." />
-  <meta property="og:description" content="Manufacturing engineering consulting powered by LineFlow." />
-  <meta property="og:url" content="https://lineflowmfg.com/" />
-  <meta property="og:image" content="https://lineflowmfg.com/lineflow-social-preview.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="LineFlow manufacturing engineering consulting" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="LineFlow — Define Your Current State. Optimize Your Future State." />
-  <meta name="twitter:description" content="Manufacturing engineering consulting powered by LineFlow." />
-  <meta name="twitter:image" content="https://lineflowmfg.com/lineflow-social-preview.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Brett Davis provides manufacturing engineering consulting for underperforming assembly lines.">
+  <title>LineFlow Manufacturing Consulting | Brett Davis</title>
+  <link rel="canonical" href="https://lineflowmfg.com/">
+  <link rel="icon" type="image/png" sizes="512x512" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/favicon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="LineFlow Manufacturing Consulting | Brett Davis">
+  <meta property="og:description" content="Manufacturing engineering support for troublesome assembly lines.">
+  <meta property="og:url" content="https://lineflowmfg.com/">
+  <meta property="og:image" content="https://lineflowmfg.com/lineflow-social-preview.png">
+  <link rel="stylesheet" href="consulting.css">
 </head>
 <body>
-  <header class="site-header">
-    <div class="container nav">
-      <a class="brand" href="#top" aria-label="LineFlow home">
-        <span class="brand-mark">
-          <span></span><span></span><span></span>
-        </span>
-        <span>LineFlow</span>
-      </a>
-      <nav class="nav-links" aria-label="Primary">
-        <a href="#how">How it works</a>
-        <a href="#demo">Demo</a>
-        <a href="#about">About</a>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header>
+    <div class="container navigation">
+      <a class="wordmark" href="#main">LineFlow<span>Manufacturing Consulting</span></a>
+      <nav aria-label="Primary navigation">
+        <a href="#work">My process</a>
+        <a href="#about">About Brett</a>
+        <a href="#contact">Contact</a>
       </nav>
-      <a class="button button-small button-outline" href="mailto:Brett.Davis@lineflowmfg.com">Contact Brett</a>
     </div>
   </header>
-
-  <main id="top">
-    <section class="hero section">
-      <div class="container hero-grid">
-        <div class="hero-copy">
-          <div class="eyebrow">MANUFACTURING ENGINEERING CONSULTING · POWERED BY LINEFLOW</div>
-          <h1>Define your current state. <span>Optimize your future state.</span></h1>
-          <p class="hero-text">
-            Hands-on manufacturing engineering support combined with purpose-built software to turn observed work into current-state documentation and practical future-state recommendations.
-          </p>
-          <div class="hero-actions">
-            <a class="button button-primary" href="mailto:Brett.Davis@lineflowmfg.com?subject=LineFlow%20Pilot%20Project">Contact Brett</a>
-            <a class="button button-ghost" href="#demo">▶ Watch the demo</a>
-          </div>
-          <div class="hero-proof">
-            <span>✓ Current-state documentation</span>
-            <span>✓ Yamazumi analysis</span>
-            <span>✓ Precedence-safe line balancing</span>
-          </div>
-        </div>
-
-        <div class="product-window" aria-label="LineFlow product mockup">
-          <div class="window-top">
-            <div class="window-dots"><i></i><i></i><i></i></div>
-            <div class="window-title">LineFlow / Line Balance</div>
-            <div class="window-action">Export ↓</div>
-          </div>
-          <div class="window-body">
-            <div class="mini-sidebar">
-              <div class="mini-logo">LF</div>
-              <span class="active"></span>
-              <span></span><span></span><span></span>
-            </div>
-            <div class="mock-content">
-              <div class="mock-heading">
-                <div>
-                  <small>Automotive Assembly Demo</small>
-                  <strong>Optimization Results</strong>
-                </div>
-                <div class="status">Optimized</div>
-              </div>
-              <div class="kpi-row">
-                <div><small>Stations</small><b>5</b></div>
-                <div><small>Takt Time</small><b>42.8s</b></div>
-                <div><small>Efficiency</small><b>91%</b></div>
-              </div>
-              <div class="bars">
-                <div class="bar-row"><label>Station 1</label><span style="--w:91%"></span><em>39.1s</em></div>
-                <div class="bar-row"><label>Station 2</label><span style="--w:96%"></span><em>41.0s</em></div>
-                <div class="bar-row"><label>Station 3</label><span style="--w:87%"></span><em>37.2s</em></div>
-                <div class="bar-row"><label>Station 4</label><span style="--w:99%"></span><em>42.4s</em></div>
-                <div class="bar-row"><label>Station 5</label><span style="--w:94%"></span><em>40.1s</em></div>
-              </div>
-              <div class="takt-line">Target takt: 42.8 seconds</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="logo-strip">
-      <div class="container strip-inner">
-        <span>TIME STUDY</span>
-        <i>→</i>
-        <span>PROCESS DATA</span>
-        <i>→</i>
-        <span>PRECEDENCE</span>
-        <i>→</i>
-        <span>LINE BALANCE</span>
-      </div>
-    </section>
-
-    <section id="demo" class="section demo-section">
+  <main id="main">
+    <section class="hero">
       <div class="container">
-        <div class="section-heading centered">
-          <div class="eyebrow">SEE THE FULL WORKFLOW</div>
-          <h2>From observation to an actionable future state.</h2>
-          <p>See how LineFlow turns a recorded assembly study into current-state documentation and optimal future-state work assignments.</p>
+        <p class="eyebrow">Hands-on manufacturing engineering</p>
+        <h1>Is your assembly line<br class="desktop-break"> <span>limiting production?</span></h1>
+        <p class="intro">I’m Brett Davis, a manufacturing engineer. I help manufacturers improve assembly lines that aren’t meeting production targets. I study the process in detail, identify what’s limiting performance, and work with your team to make improvements.</p>
+        <a class="button" href="mailto:Brett.Davis@lineflowmfg.com?subject=Assembly%20Line%20Consultation">Contact Brett</a>
+        <p class="hero-note">Start with a free conversation about your line.</p>
+      </div>
+    </section>
+
+    <section id="work" class="section">
+      <div class="container scope">
+        <div>
+          <h2>My process</h2>
         </div>
-        <div class="video-shell">
-          <div class="video-embed">
-            <iframe
-              src="https://www.youtube-nocookie.com/embed/BsSGfIqovIE?rel=0"
-              title="LineFlow manufacturing time study and line balancing demonstration"
-              loading="lazy"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              referrerpolicy="strict-origin-when-cross-origin"
-              allowfullscreen></iframe>
-          </div>
-          <div class="video-caption">
-            <span>LineFlow workflow:</span>
-            Observe → Capture → Define precedence → Optimize → Export
-          </div>
+        <div>
+          <ul class="work-list">
+        <li>Conduct time studies across the assembly line</li>
+        <li>Create or update standard work documents</li>
+        <li>Develop line-balancing scenarios for different numbers of operators and workstations</li>
+        <li>Identify low-cost solutions to improve throughput, reduce scrap, and lower overhead costs through line balancing, automation, and tooling</li>
+          </ul>
         </div>
       </div>
     </section>
 
-    <section id="how" class="section how-section">
+    <section id="about" class="section about">
       <div class="container">
-        <div class="section-heading">
-          <div class="eyebrow">HOW IT WORKS</div>
-          <h2>From the floor to a better balance.</h2>
+        <div class="profile">
+          <img class="headshot" src="assets/brett-davis.jpg" alt="Brett Davis" width="1600" height="1066" loading="lazy">
+          <div>
+          <h2>Brett Davis</h2>
+          <p>My name is Brett Davis, and I’m an industrial engineer with experience in quality engineering and manufacturing engineering.</p>
+          <p>Through my past experiences, I’ve learned how to quickly get up to speed on an assembly line and identify bottlenecks in the process. At every company I’ve worked for, I’ve created productivity savings using a variety of methods, including tooling changes, automation, and process changes.</p>
+          <p>I’m eager to help your business improve its existing manufacturing lines or set up and standardize a new manufacturing line. I’ve developed proprietary software that allows me to move quickly from time study → standard work → optimal line balancing.</p>
+          <p>Reach out to schedule a free consultation and see if we would be a good fit to work together.</p>
+          <address class="profile-contact">
+            <a href="mailto:Brett.Davis@lineflowmfg.com">Brett.Davis@lineflowmfg.com</a>
+            <a href="tel:+16087903141">(608)&nbsp;790&#8209;3141</a>
+          </address>
+          </div>
         </div>
-        <div class="steps-grid">
-          <article class="step-card">
-            <div class="step-number">01</div>
-            <div class="step-icon">⏱</div>
-            <h3>Observe the process</h3>
-            <p>Document real production work through a structured time study with process times, images, and notes.</p>
-          </article>
-          <article class="step-card">
-            <div class="step-number">02</div>
-            <div class="step-icon">↗</div>
-            <h3>Build the current state</h3>
-            <p>Convert observations into editable process data, a Process-at-a-Glance, and a Yamazumi chart.</p>
-          </article>
-          <article class="step-card">
-            <div class="step-number">03</div>
-            <div class="step-icon">⇄</div>
-            <h3>Define constraints</h3>
-            <p>Define what must happen first and what work can occur in parallel.</p>
-          </article>
-          <article class="step-card">
-            <div class="step-number">04</div>
-            <div class="step-icon">▥</div>
-            <h3>Recommend the future state</h3>
-            <p>Compare staffing scenarios and identify the optimal line balance for your operation.</p>
-          </article>
+        <div class="background-details">
+          <h3>Education &amp; credentials</h3>
+          <ul class="credential-grid">
+            <li><strong>B.S. Industrial Engineering</strong><span>University of Wisconsin–Madison</span></li>
+            <li><strong>FE Exam passed</strong><span>Industrial &amp; Systems</span></li>
+            <li><strong>Six Sigma Green Belt</strong></li>
+          </ul>
+          <h3>Experience</h3>
+          <ul class="company-grid">
+            <li class="company-card"><div class="company-logo"><img src="assets/trane-technologies.svg" alt="" width="210" height="100" loading="lazy"></div><h4>Trane Technologies</h4></li>
+            <li class="company-card"><div class="company-logo"><img src="assets/toyota-material-handling.svg" alt="" width="210" height="100" loading="lazy"></div><h4>Toyota Material Handling</h4></li>
+            <li class="company-card"><div class="company-logo"><img class="husco-logo" src="assets/husco.png" alt="" width="200" height="200" loading="lazy"></div><h4>Husco International</h4></li>
+            <li class="company-card"><div class="company-logo"><img class="xes-logo" src="assets/xes.png" alt="" width="86" height="60" loading="lazy"></div><h4>Xtreme Engineering Solutions</h4></li>
+          </ul>
+          <a class="text-link" href="https://www.linkedin.com/in/brettjdavis1" target="_blank" rel="noopener noreferrer">View my LinkedIn profile →</a>
         </div>
       </div>
     </section>
 
-    <section class="problem-section section">
-      <div class="container split">
+    <section class="section">
+      <div class="container tools">
         <div>
-          <div class="eyebrow">WHY LINEFLOW</div>
-          <h2>Stop stitching the analysis together by hand.</h2>
-          <p>
-            Traditional line balancing often means manually moving from a stopwatch to paper notes, an Excel spreadsheet, standard-work document creation, and analysis.
-          </p>
-          <p>
-            LineFlow is designed to connect those steps into one continuous engineering workflow.
-          </p>
+          <p class="eyebrow">A tool I use</p>
+          <h2>Built for the work.</h2>
         </div>
-        <div class="before-after">
-          <div class="ba-card muted">
-            <span>BEFORE</span>
-            <b>5+ disconnected steps</b>
-            <p>Stopwatch → paper notes → Excel → standard work → analysis</p>
-          </div>
-          <div class="arrow-down">↓</div>
-          <div class="ba-card highlight">
-            <span>WITH LINEFLOW</span>
-            <b>One connected workflow</b>
-            <p>Record the process → define constraints → optimize the line</p>
-          </div>
+        <div>
+          <p>I developed LineFlow to help me move efficiently from time study to standard work, Yamazumi analysis, and line-balancing scenarios. The software supports the analysis; I work with your team to put it into practice.</p>
+          <a class="text-link" href="software/">Explore the LineFlow software and demo →</a>
         </div>
       </div>
     </section>
 
-    <section id="about" class="section about-section">
-      <div class="container split">
-        <div class="founder-card">
-          <div class="founder-photo">
-            <img src="assets/brett-davis.jpg" alt="Brett Davis, founder of LineFlow" />
-          </div>
-          <div class="founder-label">
-            <b>Brett Davis</b>
-            <span>Industrial &amp; Manufacturing Engineer · Founder of LineFlow</span>
-          </div>
-        </div>
+    <section id="contact" class="section contact">
+      <div class="container contact-layout">
         <div>
-          <div class="eyebrow">MEET THE FOUNDER</div>
-          <h2>Built by a manufacturing engineer, for manufacturing teams.</h2>
-          <p>
-            I’m Brett Davis, an industrial engineer and manufacturing engineer focused on continuous improvement, process optimization, standard work, and line balancing. I created LineFlow after repeatedly seeing how much engineering time was consumed turning good observations into usable analysis.
-          </p>
-          <p>
-            My consulting approach combines hands-on engineering support with LineFlow’s purpose-built workflow, helping teams move from time-study footage to clear, defensible improvement recommendations.
-          </p>
-          <div class="founder-links">
-            <a href="mailto:Brett.Davis@lineflowmfg.com" class="text-link">Email Brett →</a>
-            <a href="https://www.linkedin.com/in/brettjdavis1" class="text-link" target="_blank" rel="noopener noreferrer">Connect on LinkedIn →</a>
-          </div>
+          <h2>Let’s talk about your line.</h2>
+          <p>Reach out for a free consultation to discuss the problem and whether I would be a good fit for your project.</p>
         </div>
-      </div>
-    </section>
-
-    <section id="try" class="section cta-section">
-      <div class="container cta-card">
-        <div>
-          <div class="eyebrow light">DISCUSS A PILOT</div>
-          <h2>Bring a process. Let’s find a better future state.</h2>
-          <p>Contact Brett to discuss a focused LineFlow pilot on one manufacturing or assembly process.</p>
-        </div>
-        <div class="cta-actions">
-            <a class="button button-white" href="mailto:Brett.Davis@lineflowmfg.com?subject=LineFlow%20Pilot%20Project">Contact Brett</a>
-            <a class="button button-dark" href="#demo">Watch the Demo</a>
-        </div>
+        <address>
+          <a href="mailto:Brett.Davis@lineflowmfg.com">Brett.Davis@lineflowmfg.com</a>
+          <a href="tel:+16087903141">(608)&nbsp;790&#8209;3141</a>
+        </address>
       </div>
     </section>
   </main>
-
-  <footer>
-    <div class="container footer-inner">
-      <a class="brand" href="#top">
-        <span class="brand-mark"><span></span><span></span><span></span></span>
-        <span>LineFlow</span>
-      </a>
-      <a href="mailto:Brett.Davis@lineflowmfg.com">Brett.Davis@lineflowmfg.com</a>
-      <span>© 2026 LineFlow</span>
-    </div>
-  </footer>
-
-  <script src="script.js"></script>
+  <footer><div class="container">© 2026 LineFlow Manufacturing</div></footer>
 </body>
 </html>
