@@ -15,7 +15,7 @@
         <div id="videoFallback" class="video-fallback">
           <div class="fallback-icon" aria-hidden="true">◉</div>
           <div class="fallback-title">Camera is off</div>
-          <div class="fallback-sub">Enable the camera to film this study.</div>
+          <div class="fallback-sub">Enable the camera for photos, or use the stopwatch alone.</div>
         </div>
 
         <div class="screen-gradient screen-gradient-top" aria-hidden="true"></div>
@@ -26,13 +26,13 @@
             <span class="brand-mark" aria-hidden="true">L</span>
             <span>LINEFLOW</span>
           </div>
-          <div class="timer-status" aria-live="polite">
+          <div class="timer-status">
             <span class="record-dot" aria-hidden="true"></span>
             <span id="timer" class="timer">00:00.000</span>
           </div>
           <div class="toolbar-actions">
             <button id="exportBtn" class="toolbar-btn" type="button"
-              title="Download CSV, images, and video in one ZIP" disabled>
+              title="Download study data, photos, and any recorded video in one ZIP" disabled>
               Export Study
             </button>
           </div>
@@ -54,8 +54,16 @@
           <input id="processNameInput" type="text" placeholder="Enter process name" autocomplete="off" />
         </label>
 
+        <div class="study-options">
+          <label class="record-option" for="recordVideoInput">
+            <input id="recordVideoInput" type="checkbox" />
+            Record video
+          </label>
+          <p id="studyStatus" role="status" aria-live="polite">Ready · Photos only</p>
+        </div>
+
         <div class="idle-state">
-          <p>Set up your shot, then start the time study.</p>
+          <p>Video is optional. Enable the camera to take photos.</p>
           <button id="startBtn" class="start-cta" type="button">Start study</button>
         </div>
 
@@ -65,11 +73,11 @@
         </div>
 
         <div class="capture-controls" aria-label="Study controls">
-          <button id="pauseBtn" class="capture-control" type="button" disabled>
+          <button id="pauseBtn" class="capture-control" type="button" aria-label="Pause study" aria-pressed="false" disabled>
             <span class="control-icon pause-icon" aria-hidden="true"><span></span><span></span></span>
             <span class="control-label">Pause</span>
           </button>
-          <button id="stopBtn" class="shutter-control" type="button" disabled aria-label="Stop recording">
+          <button id="stopBtn" class="shutter-control" type="button" disabled aria-label="Stop study">
             <span class="shutter-icon" aria-hidden="true"></span>
             <span class="control-label">Stop</span>
           </button>

@@ -203,9 +203,60 @@ video {
   box-shadow: 0 0 0 4px rgba(124, 135, 150, 0.16);
 }
 
-.is-active .record-dot {
+.is-running .record-dot {
+  background: #6be0ba;
+  box-shadow: 0 0 0 4px rgba(107, 224, 186, 0.18);
+}
+
+.is-recording .record-dot {
   background: var(--danger);
   box-shadow: 0 0 0 4px rgba(255, 78, 93, 0.18);
+}
+
+.is-paused .record-dot {
+  background: #ffc66d;
+  box-shadow: 0 0 0 4px rgba(255, 198, 109, 0.18);
+}
+
+.study-options {
+  position: absolute;
+  z-index: 3;
+  top: 230px;
+  left: 18px;
+  right: 18px;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.record-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(7, 9, 14, 0.8);
+  font-size: 0.85rem;
+}
+
+.record-option input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--brand);
+}
+
+#studyStatus {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(7, 9, 14, 0.8);
+  font-size: 0.8rem;
+}
+
+.is-paused #studyStatus {
+  color: #ffc66d;
 }
 
 .timer {
@@ -454,6 +505,8 @@ video {
 
 .capture-control,
 .shutter-control {
+  min-width: 48px;
+  min-height: 72px;
   display: grid;
   justify-items: center;
   gap: 7px;
@@ -486,7 +539,22 @@ video {
 }
 
 .pause-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 4px;
+}
+
+.is-paused .pause-icon span {
+  display: none;
+}
+
+.is-paused .pause-icon::before {
+  content: "";
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  border-left: 14px solid white;
+  margin-left: 3px;
 }
 
 .pause-icon span {
@@ -721,12 +789,20 @@ tr:last-child td {
 }
 
 @media (max-height: 660px) and (max-width: 759px) {
+  .video-fallback > * {
+    display: none;
+  }
+
   .camera-tools {
     top: 70px;
   }
 
   .process-name-field {
     top: 119px;
+  }
+
+  .study-options {
+    top: 208px;
   }
 
   .capture-controls {

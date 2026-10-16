@@ -1,15 +1,23 @@
-﻿# Standard Work Creator
+# Standard Work Creator
 
-A lightweight web app for filming a process flow, capturing snapshots, and naming each process in real time.
+A lightweight web app for timing a process flow, capturing photos, optionally recording video, and naming each process in real time.
+
+## Stopwatch with photos
+- Leave **Record video** unchecked (the default).
+- Select **Enable camera**, then **Start study**. You can also enable the camera during a study.
+- Select **Snapshot** to save a photo for the current process. A new snapshot replaces that process's previous photo.
+- **Pause** freezes the stopwatch and changes to **Resume**. You can still take a photo while paused. Paused time is excluded from durations.
+- Select **Stop**, then **Export Study**. The ZIP contains study data and photos, with no video file.
+- To include video, check **Record video** before starting and enable the camera. This setting stays locked during the study.
 
 ## Features
 - Live camera view (optional)
 - Stopwatch with millisecond precision
-- Screenshot capture while filming
+- Photo capture with or without video recording
 - In-session process naming
 - Next process button to advance to the next process
-- Process table with one row per filmed process
-- CSV export with process start time, name, and screenshot metadata
+- Process table with one row per timed process
+- ZIP export containing CSV, JSON, photos, and optional video
 
 ## Files
 - `index.html`

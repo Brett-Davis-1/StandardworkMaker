@@ -16,6 +16,9 @@ const cameraApp = document.querySelector(".camera-app");
 const captureToast = document.getElementById("captureToast");
 const captureToastTitle = document.getElementById("captureToastTitle");
 const captureToastDetail = document.getElementById("captureToastDetail");
+const recordVideoInput = document.getElementById("recordVideoInput");
+const studyStatus = document.getElementById("studyStatus");
+const pauseLabel = pauseBtn.querySelector(".control-label");
 
 let running = false;
 let startTime = 0;
@@ -31,6 +34,7 @@ let resolveRecordingStop = null;
 let processes = [];
 let currentProcess = null;
 let toastTimer = null;
+let cameraPending = false;
 
 function nowMs() {
   return performance.now();
@@ -135,11 +139,21 @@ function setSessionState() {
   const paused = sessionStarted && !running;
   cameraApp.classList.toggle("is-active", sessionStarted);
   cameraApp.classList.toggle("is-running", running);
+  cameraApp.classList.toggle("is-paused", paused);
+  cameraApp.classList.toggle("is-recording", mediaRecorder?.state === "recording");
   document.body.classList.toggle("study-active", sessionStarted);
   startBtn.disabled = sessionStarted;
   pauseBtn.disabled = !sessionStarted;
   stopBtn.disabled = !sessionStarted;
-  pauseBtn.textContent = paused ? "Resume" : "Pause";
+  pauseLabel.textContent = paused ? "Resume" : "Pause";
+  pauseBtn.setAttribute("aria-label", paused ? "Resume study" : "Pause study");
+  pauseBtn.setAttribute("aria-pressed", String(paused));
+  recordVideoInput.disabled = sessionStarted;
+  const timingStatus = paused ? "Paused" : running ? "Timing" : processes.length ? "Stopped" : "Ready";
+  const captureStatus = !recordVideoInput.checked ? "Photos only" : !stream
+    ? "Enable camera for video" : !mediaRecorder ? "Video unavailable · Photos only"
+    : paused ? "Video paused" : running ? "Recording video" : "Video enabled";
+  studyStatus.textContent = `${timingStatus} · ${captureStatus}`;
   processImageBtn.disabled = !sessionStarted || !stream || !currentProcess;
   nextProcessBtn.disabled = !sessionStarted || !currentProcess;
   exportBtn.disabled = processes.length === 0 || sessionStarted;
@@ -184,6 +198,7 @@ function startSession() {
     if (mediaRecorder.state === "paused") mediaRecorder.resume();
     else if (mediaRecorder.state === "inactive") startRecordingIfNeeded();
   }
+  startRecordingIfNeeded();
 
   setSessionState();
   cancelAnimationFrame(rafId);
@@ -219,7 +234,10 @@ function stopSession() {
 }
 
 async function enableCamera() {
-  if (stream) return;
+  if (stream || cameraPending) return;
+  cameraPending = true;
+  cameraBtn.disabled = true;
+  cameraBtn.textContent = "Opening camera…";
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "environment" } },
@@ -229,7 +247,7 @@ async function enableCamera() {
     videoFallback.classList.add("hidden");
     cameraBtn.textContent = "Camera Active";
     cameraBtn.disabled = true;
-    setupRecorder();
+    if (recordVideoInput.checked) setupRecorder();
     if (sessionStarted) {
       startRecordingIfNeeded();
       if (!running && mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.pause();
@@ -237,20 +255,30 @@ async function enableCamera() {
     setSessionState();
   } catch {
     videoFallback.classList.remove("hidden");
-    cameraBtn.textContent = "Camera Blocked";
+    cameraBtn.textContent = "Retry camera";
+    videoFallback.querySelector(".fallback-sub").textContent = "Allow camera access to take photos. The stopwatch still works.";
+  } finally {
+    cameraPending = false;
+    cameraBtn.disabled = Boolean(stream);
+    setSessionState();
   }
 }
 
 function setupRecorder() {
-  if (!window.MediaRecorder || !stream) return;
-  let mimeType = "video/webm;codecs=vp9";
-  if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "video/webm;codecs=vp8";
-  if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "video/webm";
-  if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "";
+  if (!recordVideoInput.checked || !window.MediaRecorder || !stream || mediaRecorder) return;
+  try {
+    let mimeType = "video/webm;codecs=vp9";
+    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "video/webm;codecs=vp8";
+    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "video/webm";
+    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = "";
 
-  mediaRecorder = mimeType
-    ? new MediaRecorder(stream, { mimeType })
-    : new MediaRecorder(stream);
+    mediaRecorder = mimeType
+      ? new MediaRecorder(stream, { mimeType })
+      : new MediaRecorder(stream);
+  } catch {
+    mediaRecorder = null;
+    return;
+  }
 
   mediaRecorder.ondataavailable = (event) => {
     if (event.data && event.data.size > 0) recordingChunks.push(event.data);
@@ -268,6 +296,8 @@ function setupRecorder() {
 }
 
 function startRecordingIfNeeded() {
+  if (!recordVideoInput.checked || !sessionStarted || !running) return;
+  setupRecorder();
   if (!mediaRecorder) return;
   if (mediaRecorder.state === "inactive") {
     recordingChunks = [];
@@ -279,7 +309,6 @@ function finalizeRecording() {
   if (!mediaRecorder || mediaRecorder.state === "inactive") {
     return Promise.resolve(recordedVideoBlob);
   }
-  if (mediaRecorder.state === "paused") mediaRecorder.resume();
   recordingStopPromise = new Promise((resolve) => {
     resolveRecordingStop = resolve;
   });
@@ -485,7 +514,10 @@ function triggerDownload(content, filename, mimeType) {
 
 startBtn.addEventListener("click", () => {
   startSession();
-  startRecordingIfNeeded();
+});
+recordVideoInput.addEventListener("change", () => {
+  if (recordVideoInput.checked) setupRecorder();
+  setSessionState();
 });
 pauseBtn.addEventListener("click", () => {
   if (running) pauseSession();
