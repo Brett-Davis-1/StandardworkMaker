@@ -21,6 +21,7 @@
       <div class="privacy-note">
         <strong>Local processing</strong>
         <span>Your ZIP files stay in this browser.</span>
+        <span>Revision r02 · October 17, 2026</span>
       </div>
     </header>
 
@@ -67,6 +68,16 @@
           <input id="observerName" type="text" placeholder="Observer name" />
         </label>
       </div>
+      <details class="production-settings">
+        <summary>Daily production time (editable planning assumptions)</summary>
+        <div class="metadata-grid">
+          <label><span>Hours per shift</span><input id="shiftHours" type="number" min="0" max="24" step="0.25" value="8" /></label>
+          <label><span>Shifts per day</span><input id="shiftsPerDay" type="number" min="1" max="24" step="1" value="1" /></label>
+          <label><span>Breaks per shift (minutes)</span><input id="breakMinutes" type="number" min="0" step="1" value="30" /></label>
+          <label><span>Other planned downtime per shift (minutes)</span><input id="downtimeMinutes" type="number" min="0" step="1" value="0" /></label>
+        </div>
+        <p class="section-copy">These starting values are examples. The Daily Capacity tab lets you change them in Excel and compare units per day for each operator count.</p>
+      </details>
     </section>
 
     <section class="panel review-panel">
@@ -107,7 +118,7 @@
         <p class="step-label">Step 4</p>
         <h2>Generate the workbook</h2>
         <p class="section-copy">
-          Creates editable Study Data, Process at a Glance, and Yamazumi sheets.
+          Creates Study Data, Process at a Glance, Yamazumi, and Daily Capacity sheets.
         </p>
       </div>
       <button id="generateBtn" class="primary-button" type="button" disabled>
@@ -134,7 +145,7 @@
           <p class="step-label">Future State Setup</p>
           <h2>Define process precedence</h2>
           <p class="section-copy">
-            Drag process cards between stages. Pull an arrow from one process to the process that must happen next.
+            Drag process cards between stages. Pull an arrow to the process that must happen next. Select an arrow and choose Remove arrow to correct a relationship.
           </p>
         </div>
         <button id="closeBalanceBtn" class="secondary-button" type="button">Close</button>
@@ -143,13 +154,18 @@
       <div class="balance-toolbar">
         <button id="addStageBtn" class="secondary-button" type="button">+ Add stage</button>
         <button id="connectBtn" class="secondary-button" type="button" disabled>Connect predecessor</button>
+        <button id="removeArrowBtn" class="secondary-button" type="button" disabled>Remove arrow</button>
         <span id="connectionHint" class="connection-hint">Drag an arrow handle, or select a process to edit its constraints.</span>
       </div>
 
       <div id="precedenceCanvas" class="precedence-canvas">
-        <svg id="precedenceLines" class="precedence-lines" aria-hidden="true"></svg>
+        <svg id="precedenceLines" class="precedence-lines" aria-label="Precedence arrows"></svg>
         <div id="stageGrid" class="stage-grid"></div>
       </div>
+      <details class="relationship-panel" open>
+        <summary>Precedence relationships</summary>
+        <div id="relationshipList" class="relationship-list"></div>
+      </details>
 
       <div id="processEditor" class="process-editor" hidden>
         <div>
@@ -243,6 +259,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="reports.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

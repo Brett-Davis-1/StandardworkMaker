@@ -405,10 +405,19 @@ td input[type="checkbox"] {
 .precedence-lines {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 3;
   overflow: visible;
   pointer-events: none;
 }
+
+.precedence-hit { fill: none; stroke: transparent; stroke-width: 18px; pointer-events: stroke; cursor: pointer; }
+.precedence-path.selected { stroke: #ffd17a; stroke-width: 4; opacity: 1; }
+.precedence-hit:focus { outline: none; stroke: rgba(255, 209, 122, 0.3); }
+.relationship-panel, .production-settings { margin-top: 20px; }
+.relationship-panel summary, .production-settings summary { cursor: pointer; font-weight: 700; margin-bottom: 14px; }
+.relationship-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.relationship-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.relationship-row button { min-height: 36px; }
 
 .precedence-path {
   fill: none;

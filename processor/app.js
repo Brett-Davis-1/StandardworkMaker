@@ -36,6 +36,9 @@ const optimizationMetrics = document.getElementById("optimizationMetrics");
 const futureYamazumi = document.getElementById("futureYamazumi");
 const futureAssignmentBody = document.getElementById("futureAssignmentBody");
 const exportFutureBtn = document.getElementById("exportFutureBtn");
+const removeArrowBtn = document.getElementById("removeArrowBtn");
+const relationshipList = document.getElementById("relationshipList");
+let selectedArrow = null;
 
 const categories = ["Value Added", "Non-Value Added", "Walking", "Waiting", "Other"];
 const categoryColors = {
@@ -312,8 +315,8 @@ function addStudyDataSheet(workbook, rows, metadata, options = {}) {
   rows.forEach((item, index) => {
     const row = sheet.getRow(index + 7);
     row.values = [
-      item.sequence, item.station, item.description, item.durationSeconds,
-      item.category, item.tool, item.imageFile, item.sourceFile, item.studyId
+      item.sequence, item.station || "Unassigned", item.description, item.durationSeconds,
+      item.category, item.tool || "None", item.imageFile, item.sourceFile, item.studyId
     ];
     row.getCell(4).numFmt = "0.000";
     row.alignment = { vertical: "middle", wrapText: true };
@@ -739,6 +742,7 @@ async function generateWorkbook() {
   setStatus("Building the editable Excel workbook…");
 
   try {
+    const production = LineFlowReports.readProductionInputs();
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "LineFlow";
     workbook.created = new Date();
@@ -748,6 +752,8 @@ async function generateWorkbook() {
     addStudyDataSheet(workbook, rows, metadata);
     addPaagSheet(workbook, rows, metadata);
     addYamazumiSheet(workbook, rows, metadata);
+    LineFlowReports.addDailyCapacity(workbook, [{ label: "Current state", rows, dataSheet: "Study Data" }], production);
+    workbook.calcProperties.fullCalcOnLoad = true;
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
@@ -837,6 +843,8 @@ function initializeBalanceItems() {
     allowedStations: [...new Set(includedRows.map((item) => item.station || "Unassigned"))]
   }));
   balanceEdges = [];
+  selectedArrow = null;
+  removeArrowBtn.disabled = true;
   selectedBalanceId = "";
   connectionSourceId = "";
   const currentCount = Math.max(1, getCurrentBalanceStations().length);
@@ -852,6 +860,8 @@ function initializeBalanceItems() {
 }
 
 function startBalanceConnection(id) {
+  selectedArrow = null;
+  removeArrowBtn.disabled = true;
   connectionSourceId = id;
   connectionPointerMoved = false;
   connectBtn.textContent = "Cancel connection";
@@ -991,7 +1001,46 @@ function renderBalanceWorkspace() {
     stageGrid.appendChild(stage);
   }
   balanceSummary.textContent = `${balanceItems.length} processes · ${balanceEdges.length} precedence relationship${balanceEdges.length === 1 ? "" : "s"}`;
+  renderRelationshipList();
   requestAnimationFrame(drawPrecedenceLines);
+}
+
+function selectArrow(edge) {
+  cancelBalanceConnection();
+  selectedArrow = edge;
+  removeArrowBtn.disabled = false;
+  connectionHint.textContent = `Selected: ${balanceItemById(edge.from).row.description} → ${balanceItemById(edge.to).row.description}. Choose Remove arrow or press Delete.`;
+  drawPrecedenceLines();
+}
+
+function removeBalanceEdge(edge) {
+  if (!edge || !balanceEdges.includes(edge)) return;
+  balanceEdges = balanceEdges.filter((candidate) => candidate !== edge);
+  selectedArrow = null;
+  removeArrowBtn.disabled = true;
+  cancelBalanceConnection("Arrow removed. Recalculate scenarios to use the revised precedence.");
+  invalidateFutureState();
+  renderBalanceWorkspace();
+  if (selectedBalanceId) selectBalanceItem(selectedBalanceId);
+}
+
+function renderRelationshipList() {
+  relationshipList.replaceChildren();
+  if (!balanceEdges.length) relationshipList.textContent = "No arrows yet. Drag an arrow handle between processes to add a relationship.";
+  balanceEdges.forEach((edge) => {
+    const row = document.createElement("div");
+    row.className = "relationship-row";
+    const label = document.createElement("span");
+    label.textContent = `${balanceItemById(edge.from).row.description} → ${balanceItemById(edge.to).row.description}`;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "secondary-button";
+    remove.textContent = "Remove";
+    remove.setAttribute("aria-label", `Remove arrow: ${label.textContent}`);
+    remove.addEventListener("click", () => removeBalanceEdge(edge));
+    row.append(label, remove);
+    relationshipList.append(row);
+  });
 }
 
 function handleBalanceCardClick(id) {
@@ -1047,12 +1096,8 @@ function renderPredecessorList() {
     remove.type = "button";
     remove.className = "relationship-chip";
     remove.textContent = `${predecessor?.row.description || "Process"} ×`;
-    remove.addEventListener("click", () => {
-      balanceEdges = balanceEdges.filter((candidate) => candidate !== edge);
-      invalidateFutureState();
-      renderBalanceWorkspace();
-      selectBalanceItem(selectedBalanceId);
-    });
+    remove.setAttribute("aria-label", `Remove predecessor ${predecessor?.row.description || "Process"}`);
+    remove.addEventListener("click", () => removeBalanceEdge(edge));
     predecessorList.appendChild(remove);
   });
 }
@@ -1620,13 +1665,14 @@ async function generateFutureStateWorkbook() {
     taktSummaryLabel: "Required Takt (sec)"
   };
   const currentRows = balanceItems
-    .map((item) => ({ ...item.row }))
+    .map((item) => ({ ...item.row, balanceId: item.id }))
     .sort((a, b) => a.station.localeCompare(b.station) || a.sequence - b.sequence);
 
   exportFutureBtn.disabled = true;
   exportFutureBtn.textContent = "Generating…";
   setStatus(`Building one workbook with ${feasibleScenarios.length} future-state scenarios…`);
   try {
+    const production = LineFlowReports.readProductionInputs();
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "LineFlow";
     workbook.created = new Date();
@@ -1647,6 +1693,8 @@ async function generateFutureStateWorkbook() {
       stateLabel: "Current State"
     });
     addScenarioPrecedenceRelationshipsSheet(workbook, futureStateScenarios);
+    LineFlowReports.addCriticalPath(workbook, balanceItems, balanceEdges, currentRows, "Current State Data");
+    const capacityOptions = [{ label: "Current state", rows: currentRows, dataSheet: "Current State Data" }];
     feasibleScenarios.forEach((scenario) => {
       const futureMetadata = {
         ...baseMetadata,
@@ -1658,11 +1706,19 @@ async function generateFutureStateWorkbook() {
         sheetName: `${scenario.stationCount}-Stn Data`,
         title: `LineFlow ${scenario.stationCount}-Station Future State Data`
       });
+      LineFlowReports.addOperatorPaag(workbook, scenario.solution.futurePlan.rows, {
+        count: scenario.stationCount,
+        dataSheet: `${scenario.stationCount}-Stn Data`,
+        title: baseMetadata.studyName
+      });
+      capacityOptions.push({ label: `${scenario.stationCount} operators`, rows: scenario.solution.futurePlan.rows, dataSheet: `${scenario.stationCount}-Stn Data` });
       addYamazumiSheet(workbook, scenario.solution.futurePlan.rows, futureMetadata, {
         sheetName: `${scenario.stationCount}-Stn Yamazumi`,
         stateLabel: `${scenario.stationCount}-Station Future State`
       });
     });
+    LineFlowReports.addDailyCapacity(workbook, capacityOptions, production);
+    workbook.calcProperties.fullCalcOnLoad = true;
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
@@ -1687,6 +1743,7 @@ async function generateFutureStateWorkbook() {
 }
 
 function drawPrecedenceLines(pointer = null) {
+  const focusedArrow = document.activeElement?.getAttribute("data-arrow-key");
   const canvasRect = precedenceCanvas.getBoundingClientRect();
   precedenceLines.innerHTML = `
     <defs>
@@ -1710,8 +1767,23 @@ function drawPrecedenceLines(pointer = null) {
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("d", `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`);
     path.setAttribute("class", "precedence-path");
+    if (selectedArrow === edge) path.classList.add("selected");
     path.setAttribute("marker-end", "url(#precedenceArrow)");
     precedenceLines.appendChild(path);
+    const hit = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    hit.setAttribute("d", path.getAttribute("d"));
+    hit.setAttribute("class", "precedence-hit");
+    hit.setAttribute("tabindex", "0");
+    hit.setAttribute("role", "button");
+    hit.setAttribute("data-arrow-key", `${edge.from}:${edge.to}`);
+    hit.setAttribute("aria-label", `Select arrow from ${balanceItemById(edge.from).row.description} to ${balanceItemById(edge.to).row.description}`);
+    hit.addEventListener("click", (event) => { event.stopPropagation(); selectArrow(edge); });
+    hit.addEventListener("keydown", (event) => {
+      if (["Delete", "Backspace"].includes(event.key)) { event.preventDefault(); event.stopPropagation(); removeBalanceEdge(edge); }
+      else if (["Enter", " "].includes(event.key)) { event.preventDefault(); selectArrow(edge); removeArrowBtn.focus(); }
+    });
+    precedenceLines.appendChild(hit);
+    if (focusedArrow === `${edge.from}:${edge.to}`) hit.focus({ preventScroll: true });
   });
   if (pointer && connectionSourceId) {
     const from = stageGrid.querySelector(`[data-balance-id="${connectionSourceId}"]`);
@@ -1795,6 +1867,13 @@ maximumStationCountInput.addEventListener("change", () => {
 });
 confirmBalanceBtn.addEventListener("click", optimizeLineBalance);
 exportFutureBtn.addEventListener("click", generateFutureStateWorkbook);
+removeArrowBtn.addEventListener("click", () => removeBalanceEdge(selectedArrow));
+document.addEventListener("keydown", (event) => {
+  if (balanceWorkspace.hidden || !selectedArrow || !["Delete", "Backspace"].includes(event.key)) return;
+  if (event.target.closest("input, textarea, select, [contenteditable=true]")) return;
+  event.preventDefault();
+  removeBalanceEdge(selectedArrow);
+});
 window.addEventListener("resize", () => {
   if (!balanceWorkspace.hidden) requestAnimationFrame(drawPrecedenceLines);
 });

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cycle Time Analysis · LineFlow</title>
+  <link rel="icon" href="../favicon.png">
+  <link rel="stylesheet" href="styles.css">
+  <script src="statistics.js" defer></script>
+  <script src="charts.js" defer></script>
+  <script src="exports.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="shell app-header">
+    <a class="brand" href="../software/">LINEFLOW</a>
+    <a href="../cyclestudy/">← Cycle stopwatch</a>
+  </header>
+  <main class="shell">
+    <div class="intro"><p class="eyebrow">FROM OBSERVATION TO UNDERSTANDING</p><h1>Cycle Time Analysis</h1><p>See the variation. Compare studies. Share the results.</p></div>
+    <section class="upload panel" aria-labelledby="openTitle">
+      <div><h2 id="openTitle">Open your cycle studies</h2><p>Choose one or more LineFlow CSV exports. Each file stays a separate study.</p><small>Up to 10 studies, 5,000 units each. Files are processed in this browser.</small></div>
+      <div class="upload-actions"><label class="button primary">Open CSV files<input id="csvInput" type="file" accept=".csv,text/csv" multiple></label><button id="exampleBtn" class="button secondary" type="button">Try example data</button></div>
+    </section>
+    <p id="status" role="status">Open a CSV to begin, or explore the clearly labeled example studies.</p>
+    <section id="workspace" hidden>
+      <div class="toolbar panel">
+        <label>Study to view<select id="studySelect"></select></label>
+        <label>Report title<input id="reportTitle" value="Cycle time study report" maxlength="100"></label>
+        <div class="exports"><button id="excelBtn" class="button primary">Export Excel</button><button id="printBtn" class="button secondary">Print / Save PDF</button><button id="htmlBtn" class="button secondary">Download report</button></div>
+      </div>
+      <div id="studyActions"><label>Study label<input id="studyLabel" maxlength="80"></label><button id="removeBtn" class="button secondary">Remove this study</button></div>
+      <div id="screenReport"></div>
+    </section>
+    <section id="empty" class="empty panel"><h2>A complete view of each study.</h2><div class="feature-grid"><p><b>Distribution</b>Histogram and normal / lognormal fits.</p><p><b>SPC</b>Individuals and Moving Range charts.</p><p><b>Comparison</b>Typical times, variation, and slower cycles.</p><p><b>Share</b>Excel charts and a printable report.</p></div></section>
+  </main>
+  <div id="printReport"></div>
+  <footer class="shell">Cycle times exclude any time paused in the stopwatch.</footer>
+</body>
+</html>

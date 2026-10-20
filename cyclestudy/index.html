@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f18">
+  <meta name="description" content="Time repeated units with a simple LineFlow stopwatch and export cycle times to CSV.">
+  <title>Cycle Time Study · LineFlow</title>
+  <link rel="icon" href="../favicon.png">
+  <link rel="stylesheet" href="styles.css">
+  <script src="timer.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to stopwatch</a>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="../software/" aria-label="LineFlow software"><span class="brand-mark" aria-hidden="true">L</span> LINEFLOW</a>
+      <a class="back-link" href="../cycleanalysis/" target="_blank" rel="noopener">Analyze CSVs <span aria-hidden="true">↗</span></a>
+    </header>
+    <main id="main">
+      <div class="page-heading">
+        <p class="eyebrow">REPEAT. MEASURE. COMPARE.</p>
+        <h1>Cycle Time Study</h1>
+        <p>Time the same process, one unit at a time.</p>
+      </div>
+      <div class="study-grid">
+        <section class="timer-card" aria-label="Cycle stopwatch">
+          <div class="timer-top">
+            <span id="unitLabel">UNIT 1</span>
+            <span id="stateBadge" class="state-badge" data-state="idle"><i aria-hidden="true"></i><span id="stateText">Ready</span></span>
+          </div>
+          <div class="clock-area">
+            <div id="timer" class="timer" role="timer" aria-label="Current unit time">00:00.00</div>
+            <p>Current unit · minutes : seconds</p>
+          </div>
+          <div class="timer-actions">
+            <button id="nextBtn" class="button primary" type="button">Start study <span aria-hidden="true">→</span></button>
+            <button id="pauseBtn" class="button secondary" type="button" disabled>Pause</button>
+          </div>
+          <p class="pause-note">Paused time is excluded from cycle times.</p>
+          <div class="metrics">
+            <div><span>Completed units</span><strong id="completedCount">0</strong></div>
+            <div><span>Average cycle</span><strong id="average">— <small>sec</small></strong></div>
+          </div>
+          <p id="status" class="status" role="status">Press Start study when work on the first unit begins.</p>
+        </section>
+        <section class="results-card" aria-labelledby="resultsTitle">
+          <div class="results-heading">
+            <div><p class="eyebrow">THIS STUDY</p><h2 id="resultsTitle">Recorded units</h2></div>
+            <button id="exportBtn" class="button export" type="button" disabled>Export CSV <span aria-hidden="true">↓</span></button>
+          </div>
+          <div id="emptyState" class="empty-state">
+            <span class="empty-mark" aria-hidden="true">01</span>
+            <h3>Your first unit starts here.</h3>
+            <p>Tap <strong>Next Unit</strong> each time a unit is finished. Its time is saved and the next one starts immediately.</p>
+          </div>
+          <div id="lapTableWrap" class="table-scroll" tabindex="0" aria-label="Recorded unit times, newest first" hidden>
+            <table>
+              <caption class="sr-only">Completed cycle times, newest first</caption>
+              <thead><tr><th scope="col">Unit</th><th scope="col">Cycle time (sec)</th></tr></thead>
+              <tbody id="lapList"></tbody>
+            </table>
+          </div>
+          <p class="export-note">CSV includes completed units in recording order. For the last unit, tap Next Unit, then Pause.</p>
+          <div class="reset-row"><span>Export before leaving this page.</span><button id="resetBtn" class="reset-button" type="button" disabled>Reset study</button></div>
+        </section>
+      </div>
+    </main>
+    <footer><span>LINEFLOW · CYCLE TIME STUDY</span><span>Record completed units, then analyze the CSV.</span></footer>
+  </div>
+</body>
+</html>
