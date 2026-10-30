@@ -43,9 +43,11 @@
             <span class="toolbar-icon" aria-hidden="true">◉</span>
             Enable camera
           </button>
-          <div class="process-badge">
+          <div class="process-badge" role="status" aria-live="polite" aria-atomic="true">
             <span class="process-badge-label">Current process</span>
             <strong id="currentProcess">Process 1</strong>
+            <span id="previousProcess" class="process-badge-detail">Previous: None</span>
+            <span id="processPhotoStatus" class="process-badge-detail">No photo yet</span>
           </div>
         </div>
 

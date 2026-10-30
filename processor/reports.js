@@ -112,29 +112,30 @@ const LineFlowReports = (() => {
         sheet.mergeCells(top,1,top,5);
         sheet.getCell(top,1).value=`${station} · Elements ${offset+1}–${offset+batch.length} of ${assigned.length}`;
         applyHeaderStyle(sheet.getCell(top,1)); sheet.getRow(top).height=26;
-        [[1,"Process number"],[2,"Description"],[5,"Process sketch"],[13,"Tool"],[14,"Category"],[15,"Time (sec)"]].forEach(([r,label])=>{
+        [[1,"Process number"],[2,"Description"],[5,"Process sketch"],[13,"Parts Consumed"],[14,"Tool"],[15,"Category"],[16,"Time (sec)"]].forEach(([r,label])=>{
           sheet.getCell(top+r,1).value=label;applyHeaderStyle(sheet.getCell(top+r,1));
         });
         sheet.mergeCells(top+2,1,top+4,1);sheet.mergeCells(top+5,1,top+12,1);
         batch.forEach(({row,sourceRow},index)=>{
           const col=index+2;
-          [[1,"A",row.sequence],[2,"C",row.description],[13,"F",row.tool||"None"],[14,"E",row.category],[15,"D",row.durationSeconds]].forEach(([r,c,value])=>{
-            sheet.getCell(top+r,col).value=formula(`${source}!${c}${sourceRow}`,value);
+          [[1,"A",row.sequence],[2,"C",row.description],[13,"K",row.partsConsumed||""],[14,"F",row.tool||"None"],[15,"E",row.category],[16,"D",row.durationSeconds]].forEach(([r,c,value])=>{
+            const reference=`${source}!${c}${sourceRow}`;
+            sheet.getCell(top+r,col).value=formula(c==="K"?`IF(${reference}="","",${reference})`:reference,value);
             sheet.getCell(top+r,col).alignment={vertical:"middle",wrapText:true,horizontal:r===2?"left":"center"};
           });
           sheet.mergeCells(top+2,col,top+4,col);sheet.mergeCells(top+5,col,top+12,col);
-          sheet.getCell(top+15,col).numFmt="0.000";
+          sheet.getCell(top+16,col).numFmt="0.000";
           if(row.imageDataUrl){
             const id=workbook.addImage({base64:row.imageDataUrl,extension:imageExtension(row.imageFile)});
             sheet.addImage(id,{tl:{col:col-1+0.06,row:top+4.15},ext:{width:174,height:170},editAs:"oneCell"});
           }else{sheet.getCell(top+5,col).value="No snapshot";sheet.getCell(top+5,col).alignment={horizontal:"center",vertical:"middle"};}
-          for(let r=top+1;r<=top+15;r++)applyThinBorder(sheet.getCell(r,col));
+          for(let r=top+1;r<=top+16;r++)applyThinBorder(sheet.getCell(r,col));
         });
-        for(let r=top+1;r<=top+15;r++)sheet.getRow(r).height=r>=top+5&&r<=top+12?18:26;
-        sheet.getCell(top+17,1).value="Operator total (sec)";
-        sheet.getCell(top+17,2).value=formula(`SUMIF(${source}!$B$7:$B$${rows.length+6},"${criteria(station)}",${source}!$D$7:$D$${rows.length+6})`,total(assigned.map(entry=>entry.row)));
-        sheet.getCell(top+17,2).numFmt="0.000";sheet.getRow(top+17).height=26;
-        sheet.getRow(top+18).addPageBreak(); top+=20;
+        for(let r=top+1;r<=top+16;r++)sheet.getRow(r).height=r>=top+5&&r<=top+12?18:26;
+        sheet.getCell(top+18,1).value="Operator total (sec)";
+        sheet.getCell(top+18,2).value=formula(`SUMIF(${source}!$B$7:$B$${rows.length+6},"${criteria(station)}",${source}!$D$7:$D$${rows.length+6})`,total(assigned.map(entry=>entry.row)));
+        sheet.getCell(top+18,2).numFmt="0.000";sheet.getRow(top+18).height=26;
+        sheet.getRow(top+19).addPageBreak(); top+=21;
       }
     });
     sheet.pageSetup={orientation:"landscape",paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0,printArea:`A1:E${top-2}`,printTitlesRow:"1:3"};

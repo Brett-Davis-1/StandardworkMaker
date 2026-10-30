@@ -60,24 +60,21 @@
           <input id="productName" type="text" placeholder="Product or family" />
         </label>
         <label>
-          <span>Required takt time (seconds, optional)</span>
-          <input id="taktTime" type="number" min="0.001" step="0.001" placeholder="60" />
-        </label>
-        <label>
           <span>Observer</span>
           <input id="observerName" type="text" placeholder="Observer name" />
         </label>
       </div>
-      <details class="production-settings">
-        <summary>Daily production time (editable planning assumptions)</summary>
-        <div class="metadata-grid">
-          <label><span>Hours per shift</span><input id="shiftHours" type="number" min="0" max="24" step="0.25" value="8" /></label>
-          <label><span>Shifts per day</span><input id="shiftsPerDay" type="number" min="1" max="24" step="1" value="1" /></label>
-          <label><span>Breaks per shift (minutes)</span><input id="breakMinutes" type="number" min="0" step="1" value="30" /></label>
-          <label><span>Other planned downtime per shift (minutes)</span><input id="downtimeMinutes" type="number" min="0" step="1" value="0" /></label>
-        </div>
-        <p class="section-copy">These starting values are examples. The Daily Capacity tab lets you change them in Excel and compare units per day for each operator count.</p>
-      </details>
+      <div class="saved-products">
+        <label for="savedProductSelect">
+          <span>Saved products</span>
+          <select id="savedProductSelect"><option value="">Choose a saved product</option></select>
+        </label>
+        <button id="loadProductBtn" class="secondary-button" type="button" disabled>Load product</button>
+        <button id="saveProductBtn" class="secondary-button" type="button">Save product</button>
+        <button id="newProductBtn" class="secondary-button" type="button">New product</button>
+      </div>
+      <p class="section-copy">Save using the Product name above. Saving the same name updates that product. Saved products include photos and settings, and stay in this browser on this device.</p>
+      <p id="productStatus" class="section-copy" role="status" aria-live="polite"></p>
     </section>
 
     <section class="panel review-panel">
@@ -90,7 +87,7 @@
       </div>
       <p class="section-copy">
         Correct descriptions and timing, assign each element to an operator or station,
-        add the tool, and exclude accidental rows.
+        add parts consumed and tools, and exclude accidental rows.
       </p>
       <div class="table-wrap">
         <table>
@@ -100,22 +97,54 @@
               <th>Sequence</th>
               <th>Operator / Station</th>
               <th>Description</th>
-              <th>Duration (sec)</th>
+              <th>Observed time (sec)</th>
+              <th>Adjusted time (sec)</th>
               <th>Category</th>
+              <th>Parts consumed</th>
               <th>Tool</th>
               <th>Image</th>
             </tr>
           </thead>
           <tbody id="reviewBody">
-            <tr><td colspan="8" class="empty-state">Open a study ZIP to begin.</td></tr>
+            <tr><td colspan="10" class="empty-state">Open a study ZIP to begin.</td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
+    <section class="panel" aria-labelledby="productionHeading">
+      <div class="section-heading">
+        <div>
+          <p class="step-label">Step 4</p>
+          <h2 id="productionHeading">Production information</h2>
+        </div>
+      </div>
+      <div class="metadata-grid">
+        <label>
+          <span>Required takt time (seconds, optional)</span>
+          <input id="taktTime" type="number" min="0.001" step="0.001" placeholder="60" />
+        </label>
+        <label>
+          <span>Allowance (%)</span>
+          <input id="allowancePercent" type="number" min="0" step="any" value="0" required aria-describedby="allowanceHelp" />
+        </label>
+      </div>
+      <p id="allowanceHelp" class="section-copy" role="status">Adjusted time = observed time × (1 + allowance / 100). At 0%, a 60-second task takes 60 seconds. Applies to workbooks and line balancing.</p>
+      <details class="production-settings" open>
+        <summary>Daily production time (editable planning assumptions)</summary>
+        <div class="metadata-grid">
+          <label><span>Hours per shift</span><input id="shiftHours" type="number" min="0" max="24" step="0.25" value="8" /></label>
+          <label><span>Shifts per day</span><input id="shiftsPerDay" type="number" min="1" max="24" step="1" value="1" /></label>
+          <label><span>Breaks per shift (minutes)</span><input id="breakMinutes" type="number" min="0" step="1" value="30" /></label>
+          <label><span>Other planned downtime per shift (minutes)</span><input id="downtimeMinutes" type="number" min="0" step="1" value="0" /></label>
+        </div>
+        <p class="section-copy">These starting values are examples. The Daily Capacity tab lets you change them in Excel and compare units per day for each operator count.</p>
+      </details>
+    </section>
+
     <section class="panel generate-panel">
       <div>
-        <p class="step-label">Step 4</p>
+        <p class="step-label">Step 5</p>
         <h2>Generate the workbook</h2>
         <p class="section-copy">
           Creates Study Data, Process at a Glance, Yamazumi, and Daily Capacity sheets.
@@ -128,7 +157,7 @@
 
     <section class="panel generate-panel">
       <div>
-        <p class="step-label">Step 5</p>
+        <p class="step-label">Step 6</p>
         <h2>Create optimal future state — Line Balance</h2>
         <p class="section-copy">
           Visually define precedence and constraints, then calculate the minimum takt for any future station count.
@@ -145,19 +174,28 @@
           <p class="step-label">Future State Setup</p>
           <h2>Define process precedence</h2>
           <p class="section-copy">
-            Drag process cards between stages. Pull an arrow to the process that must happen next. Select an arrow and choose Remove arrow to correct a relationship.
+            ZIP groups start with a blank column between them. Shift-click to select a range (top to bottom, then left to right), or Ctrl-click / ⌘-click individual processes. Drag tiles to any height in a column, leaving blank space to align your arrows. The highlighted line shows where the selection will land; nearby tiles move down if needed to prevent overlap. Only arrows define precedence.
           </p>
         </div>
         <button id="closeBalanceBtn" class="secondary-button" type="button">Close</button>
       </div>
 
       <div class="balance-toolbar">
-        <button id="addStageBtn" class="secondary-button" type="button">+ Add stage</button>
+        <button id="addStageBtn" class="secondary-button" type="button">+ Add column</button>
+        <button id="groupByZipBtn" class="secondary-button" type="button" title="Rearrange columns by ZIP file while keeping all relationships and constraints">Group by ZIP</button>
         <button id="connectBtn" class="secondary-button" type="button" disabled>Connect predecessor</button>
         <button id="removeArrowBtn" class="secondary-button" type="button" disabled>Remove arrow</button>
         <span id="connectionHint" class="connection-hint">Drag an arrow handle, or select a process to edit its constraints.</span>
       </div>
 
+      <div class="balance-toolbar selection-toolbar" aria-label="Move selected processes">
+        <span id="selectionCount" role="status">0 selected</span>
+        <button id="clearSelectionBtn" class="secondary-button" type="button" disabled>Clear selection</button>
+        <label for="moveSelectionColumn">Move to</label>
+        <select id="moveSelectionColumn" disabled></select>
+        <button id="moveSelectionBtn" class="secondary-button" type="button" disabled>Move selected</button>
+        <span class="connection-hint">Drag selected tiles together, or choose a column here.</span>
+      </div>
       <div id="precedenceCanvas" class="precedence-canvas">
         <svg id="precedenceLines" class="precedence-lines" aria-label="Precedence arrows"></svg>
         <div id="stageGrid" class="stage-grid"></div>
@@ -257,9 +295,21 @@
     <div id="status" class="status" role="status" aria-live="polite"></div>
   </main>
 
+  <dialog id="productConfirmDialog" aria-labelledby="productConfirmTitle" aria-describedby="productConfirmMessage">
+    <form method="dialog">
+      <h2 id="productConfirmTitle">Before you continue</h2>
+      <p id="productConfirmMessage" class="section-copy"></p>
+      <div class="product-dialog-actions">
+        <button class="secondary-button" value="cancel" autofocus>Keep editing</button>
+        <button id="productConfirmContinue" class="primary-button" value="continue">Continue without saving</button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script src="reports.js"></script>
+  <script src="products.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

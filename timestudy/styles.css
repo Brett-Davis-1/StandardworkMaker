@@ -221,7 +221,7 @@ video {
 .study-options {
   position: absolute;
   z-index: 3;
-  top: 230px;
+  top: 270px;
   left: 18px;
   right: 18px;
   display: grid;
@@ -334,6 +334,7 @@ video {
   display: grid;
   gap: 3px;
   min-width: 136px;
+  max-width: min(260px, 62%);
   padding: 9px 12px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 13px;
@@ -360,8 +361,17 @@ video {
   white-space: nowrap;
 }
 
+.process-badge-detail {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .process-name-field {
-  top: 137px;
+  top: 177px;
   right: 18px;
   left: 18px;
   display: grid;
@@ -581,6 +591,24 @@ video {
   content: "";
 }
 
+.photo-missing .camera-icon {
+  border-color: #ff8892;
+  background: #ae2334;
+}
+
+.photo-captured .camera-icon {
+  border-color: #70e0ae;
+  background: #167344;
+}
+
+.photo-missing .control-label {
+  color: #ff8892;
+}
+
+.photo-captured .control-label {
+  color: #70e0ae;
+}
+
 .next-icon::before {
   width: 0;
   height: 0;
@@ -798,11 +826,11 @@ tr:last-child td {
   }
 
   .process-name-field {
-    top: 119px;
+    top: 159px;
   }
 
   .study-options {
-    top: 208px;
+    top: 248px;
   }
 
   .capture-controls {

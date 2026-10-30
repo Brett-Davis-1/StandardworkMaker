@@ -10,10 +10,22 @@ const studyNameInput = document.getElementById("studyName");
 const productNameInput = document.getElementById("productName");
 const taktTimeInput = document.getElementById("taktTime");
 const observerNameInput = document.getElementById("observerName");
+const allowanceInput = document.getElementById("allowancePercent");
+const allowanceHelp = document.getElementById("allowanceHelp");
+const savedProductSelect = document.getElementById("savedProductSelect");
+const saveProductBtn = document.getElementById("saveProductBtn");
+const loadProductBtn = document.getElementById("loadProductBtn");
+const newProductBtn = document.getElementById("newProductBtn");
+const productStatus = document.getElementById("productStatus");
 const lineBalanceBtn = document.getElementById("lineBalanceBtn");
 const balanceWorkspace = document.getElementById("balanceWorkspace");
 const closeBalanceBtn = document.getElementById("closeBalanceBtn");
 const addStageBtn = document.getElementById("addStageBtn");
+const groupByZipBtn = document.getElementById("groupByZipBtn");
+const selectionCount = document.getElementById("selectionCount");
+const clearSelectionBtn = document.getElementById("clearSelectionBtn");
+const moveSelectionColumn = document.getElementById("moveSelectionColumn");
+const moveSelectionBtn = document.getElementById("moveSelectionBtn");
 const connectBtn = document.getElementById("connectBtn");
 const connectionHint = document.getElementById("connectionHint");
 const precedenceCanvas = document.getElementById("precedenceCanvas");
@@ -55,14 +67,245 @@ let balanceItems = [];
 let balanceEdges = [];
 let balanceStageCount = 4;
 let selectedBalanceId = "";
+let selectedBalanceIds = new Set();
+let balanceSelectionAnchor = "";
 let connectionSourceId = "";
 let draggedBalanceId = "";
+let balanceDragLayout = null;
 let connectionPointerMoved = false;
 let ignoreNextConnectorClick = false;
 let futureStateSolution = null;
 let futureStateScenarios = [];
 let futureStationPool = [];
 let glpkPromise = null;
+let allowancePercent = 0;
+let productBusy = false;
+let importingStudies = false;
+let activeProductKey = "";
+let savedProductSignature = "";
+const productFieldIds = ["studyName", "productName", "observerName", "taktTime", "allowancePercent", "shiftHours", "shiftsPerDay", "breakMinutes", "downtimeMinutes"];
+
+function withAdjustedTime(row) {
+  return {
+    partsConsumed: "",
+    ...row,
+    get durationSeconds() {
+      return this.observedDurationSeconds * (1 + allowancePercent / 100);
+    }
+  };
+}
+
+function captureProduct() {
+  return {
+    schemaVersion: 1,
+    fields: Object.fromEntries(productFieldIds.map(id => [id, document.getElementById(id).value])),
+    studies: loadedStudies.map(study => ({ ...study })),
+    rows: reviewRows.map(row => {
+      const { durationSeconds, ...observedRow } = row;
+      return observedRow;
+    }),
+    balance: {
+      stageCount: balanceStageCount,
+      items: balanceItems.map(item => ({
+        id: item.id, rowIndex: reviewRows.indexOf(item.row), stage: item.stage, order: item.order, layoutY: item.layoutY,
+        locked: item.locked, allowedStations: [...item.allowedStations]
+      })),
+      edges: balanceEdges.map(edge => ({ ...edge })),
+      stationPool: [...futureStationPool],
+      minimum: minimumStationCountInput.value,
+      maximum: maximumStationCountInput.value
+    }
+  };
+}
+
+function setProductStatus(message, error = false) {
+  productStatus.textContent = message;
+  productStatus.classList.toggle("error", error);
+}
+
+function setProductBusy(busy) {
+  productBusy = busy;
+  saveProductBtn.disabled = busy;
+  newProductBtn.disabled = busy;
+  savedProductSelect.disabled = busy;
+  loadProductBtn.disabled = busy || !savedProductSelect.value;
+}
+
+async function refreshSavedProducts(selectedKey = savedProductSelect.value) {
+  const products = await LineFlowProducts.list();
+  savedProductSelect.replaceChildren(new Option(products.length ? "Choose a saved product" : "No saved products yet", ""));
+  products.forEach(product => savedProductSelect.appendChild(new Option(product.name, product.key)));
+  savedProductSelect.value = selectedKey;
+  loadProductBtn.disabled = productBusy || !savedProductSelect.value;
+}
+
+function confirmProductAction(message, actionLabel) {
+  const dialog = document.getElementById("productConfirmDialog");
+  document.getElementById("productConfirmMessage").textContent = message;
+  document.getElementById("productConfirmContinue").textContent = actionLabel;
+  dialog.returnValue = "cancel";
+  return new Promise(resolve => {
+    dialog.addEventListener("close", () => resolve(dialog.returnValue === "continue"), { once: true });
+    dialog.showModal();
+  });
+}
+
+async function canSwitchProduct() {
+  return JSON.stringify(captureProduct()) === savedProductSignature
+    || await confirmProductAction("There are unsaved changes. Use Save product first if you want to keep them.", "Continue without saving");
+}
+
+function productActionAvailable() {
+  if (productBusy) return false;
+  if (importingStudies || allowanceInput.disabled) {
+    setProductStatus("Wait for the study import or scenario calculation to finish, then try again.", true);
+    return false;
+  }
+  return true;
+}
+
+async function saveProduct() {
+  if (!productActionAvailable()) return;
+  const name = productNameInput.value.trim();
+  if (!name) {
+    setProductStatus("Enter a Product name before saving.", true);
+    productNameInput.focus();
+    return;
+  }
+  const key = name.toLowerCase();
+  try {
+    readAllowancePercent();
+    LineFlowReports.readProductionInputs();
+    if (!taktTimeInput.validity.valid) throw new Error("Enter a positive takt time, or leave it blank.");
+    const snapshot = captureProduct();
+    setProductBusy(true);
+    const existing = await LineFlowProducts.get(key);
+    if (existing && activeProductKey !== key
+      && !await confirmProductAction(`Replace the saved product "${existing.name}" with the current study?`, "Replace saved product")) return;
+    await LineFlowProducts.save({ key, name, savedAt: new Date().toISOString(), snapshot });
+    activeProductKey = key;
+    savedProductSignature = JSON.stringify(snapshot);
+    setProductStatus(`Saved "${name}" in this browser. Use Load product to return to it.`);
+    await refreshSavedProducts(key);
+  } catch (error) {
+    const message = error.name === "QuotaExceededError" ? "Browser storage is full. This product could not be saved." : error.message;
+    setProductStatus(`Could not save product: ${message}`, true);
+  } finally {
+    setProductBusy(false);
+  }
+}
+
+function restoreProduct(snapshot) {
+  if (snapshot?.schemaVersion !== 1 || !Array.isArray(snapshot.rows) || !Array.isArray(snapshot.studies)
+    || productFieldIds.some(id => typeof snapshot.fields?.[id] !== "string")
+    || snapshot.rows.some(row => !Number.isFinite(row.observedDurationSeconds))) {
+    throw new Error("This saved product cannot be read.");
+  }
+  const restoredRows = snapshot.rows.map(withAdjustedTime);
+  const balance = snapshot.balance;
+  if (!balance || !Array.isArray(balance.items) || !Array.isArray(balance.edges)
+    || balance.items.some(item => !Number.isInteger(item.rowIndex) || !restoredRows[item.rowIndex])) {
+    throw new Error("This saved product has an invalid precedence setup.");
+  }
+  productFieldIds.forEach(id => { document.getElementById(id).value = snapshot.fields[id]; });
+  loadedStudies = snapshot.studies.map(study => ({ ...study }));
+  reviewRows = restoredRows;
+  balanceItems = balance.items.map(({ rowIndex, ...item }, index) => ({ ...item, order: Number.isFinite(item.order) ? item.order : index, allowedStations: [...item.allowedStations], row: reviewRows[rowIndex] }));
+  balanceEdges = balance.edges.map(edge => ({ ...edge }));
+  balanceStageCount = balance.stageCount;
+  futureStationPool = [...balance.stationPool];
+  minimumStationCountInput.value = balance.minimum;
+  maximumStationCountInput.value = balance.maximum;
+  [minimumStationCountInput, maximumStationCountInput].forEach(input => {
+    input.max = String(Math.max(1, balanceItems.length));
+  });
+  selectedArrow = null;
+  selectedBalanceId = "";
+  selectedBalanceIds.clear();
+  balanceSelectionAnchor = "";
+  connectionSourceId = "";
+  draggedBalanceId = "";
+  connectBtn.disabled = true;
+  connectBtn.textContent = "Connect predecessor";
+  removeArrowBtn.disabled = true;
+  processEditor.hidden = true;
+  balanceWorkspace.hidden = true;
+  zipInput.value = "";
+  invalidateFutureState();
+  updateAllowance();
+  renderStudyList();
+  renderReviewRows();
+}
+
+async function loadProduct() {
+  if (!productActionAvailable() || !savedProductSelect.value) return;
+  const key = savedProductSelect.value;
+  setProductBusy(true);
+  try {
+    if (!await canSwitchProduct()) return;
+    const product = await LineFlowProducts.get(key);
+    if (!product) throw new Error("This product is no longer saved in this browser.");
+    restoreProduct(product.snapshot);
+    activeProductKey = product.key;
+    savedProductSignature = JSON.stringify(captureProduct());
+    setProductStatus(`Loaded "${product.name}". Study data, photos, settings, and precedence setup are restored. Recalculate scenarios when ready.`);
+    setStatus(`Loaded product: ${product.name}`);
+  } catch (error) {
+    setProductStatus(`Could not load product: ${error.message}`, true);
+  } finally {
+    setProductBusy(false);
+  }
+}
+
+async function newProduct() {
+  if (!productActionAvailable()) return;
+  setProductBusy(true);
+  if (!await canSwitchProduct()) { setProductBusy(false); return; }
+  restoreProduct({
+    schemaVersion: 1,
+    fields: { studyName: "Current State Line Study", productName: "", observerName: "", taktTime: "", allowancePercent: "0", shiftHours: "8", shiftsPerDay: "1", breakMinutes: "30", downtimeMinutes: "0" },
+    studies: [], rows: [],
+    balance: { stageCount: 4, items: [], edges: [], stationPool: [], minimum: "1", maximum: "1" }
+  });
+  activeProductKey = "";
+  savedProductSelect.value = "";
+  savedProductSignature = JSON.stringify(captureProduct());
+  setProductBusy(false);
+  setProductStatus("New product ready. Open study ZIP files and enter a Product name.");
+  setStatus("");
+  productNameInput.focus();
+}
+
+function readAllowancePercent() {
+  const value = allowanceInput.value.trim();
+  const percent = Number(value);
+  if (!value || !Number.isFinite(percent) || percent < 0 || !Number.isFinite(1 + percent / 100)
+    || reviewRows.some(row => !Number.isFinite(row.observedDurationSeconds * (1 + percent / 100)))) {
+    throw new Error("Enter an allowance of 0% or greater.");
+  }
+  return percent;
+}
+
+function updateAllowance() {
+  invalidateFutureState();
+  try {
+    allowancePercent = readAllowancePercent();
+    allowanceInput.setCustomValidity("");
+    allowanceInput.setAttribute("aria-invalid", "false");
+    allowanceHelp.textContent = `Adjusted time = observed time × (1 + allowance / 100). At ${allowancePercent}%, a 60-second task takes ${Number((60 * (1 + allowancePercent / 100)).toFixed(3))} seconds. Applies to workbooks and line balancing.`;
+    renderReviewRows();
+    if (!balanceWorkspace.hidden) {
+      renderBalanceWorkspace();
+      if (selectedBalanceId) selectBalanceItem(selectedBalanceId);
+    }
+  } catch (error) {
+    allowanceInput.setCustomValidity(error.message);
+    allowanceInput.setAttribute("aria-invalid", "true");
+    allowanceHelp.textContent = `${error.message} Displayed times retain the last valid allowance; enter a valid value to calculate or export.`;
+  }
+  updateCounts();
+  confirmBalanceBtn.disabled = !allowanceInput.validity.valid;
+}
 
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
@@ -83,6 +326,7 @@ function imageExtension(path) {
 }
 
 async function loadStudyFiles(files) {
+  if (productBusy || importingStudies) return;
   const zipFiles = [...files].filter((file) => file.name.toLowerCase().endsWith(".zip"));
   if (zipFiles.length === 0) {
     setStatus("Select at least one LineFlow ZIP file.", true);
@@ -90,6 +334,7 @@ async function loadStudyFiles(files) {
   }
 
   setStatus(`Opening ${zipFiles.length} study file${zipFiles.length === 1 ? "" : "s"}…`);
+  importingStudies = true;
   const startingStudyNumber = loadedStudies.length + 1;
 
   for (let fileIndex = 0; fileIndex < zipFiles.length; fileIndex += 1) {
@@ -113,19 +358,19 @@ async function loadStudyFiles(files) {
           imageDataUrl = `data:image/${imageExtension(process.imageFile)};base64,${base64}`;
         }
 
-        rows.push({
+        rows.push(withAdjustedTime({
           include: true,
           studyId: manifest.studyId,
           sourceFile: file.name,
           sequence: Number(process.processNumber) || (rows.length + 1) * 10,
           station: stationName,
           description: process.name || `Process ${rows.length + 1}`,
-          durationSeconds: Number(process.durationSeconds) || 0,
+          observedDurationSeconds: Number(process.durationSeconds) || 0,
           category: "Value Added",
           tool: "",
           imageFile: process.imageFile || "",
           imageDataUrl
-        });
+        }));
       }
 
       loadedStudies.push({
@@ -144,6 +389,7 @@ async function loadStudyFiles(files) {
   renderReviewRows();
   setStatus(`${loadedStudies.length} study file${loadedStudies.length === 1 ? "" : "s"} ready for review.`);
   zipInput.value = "";
+  importingStudies = false;
 }
 
 function renderStudyList() {
@@ -178,7 +424,7 @@ function renderReviewRows() {
   if (reviewRows.length === 0) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = 8;
+    td.colSpan = 10;
     td.className = "empty-state";
     td.textContent = "Open a study ZIP to begin.";
     tr.appendChild(td);
@@ -209,9 +455,14 @@ function renderReviewRows() {
     tr.appendChild(makeCell(makeInput("text", row.description, "description-input", (value) => {
       row.description = value;
     })));
-    tr.appendChild(makeCell(makeInput("number", row.durationSeconds, "table-input", (value) => {
-      row.durationSeconds = Math.max(0, Number(value) || 0);
+    const adjustedTime = document.createElement("span");
+    adjustedTime.textContent = row.durationSeconds.toFixed(3);
+    tr.appendChild(makeCell(makeInput("number", row.observedDurationSeconds, "table-input", (value) => {
+      row.observedDurationSeconds = Math.max(0, Number(value) || 0);
+      adjustedTime.textContent = row.durationSeconds.toFixed(3);
+      invalidateFutureState();
     })));
+    tr.appendChild(makeCell(adjustedTime));
 
     const category = document.createElement("select");
     category.className = "table-input";
@@ -226,6 +477,13 @@ function renderReviewRows() {
       row.category = category.value;
     });
     tr.appendChild(makeCell(category));
+
+    const partsConsumed = makeInput("text", row.partsConsumed, "table-input", (value) => {
+      row.partsConsumed = value;
+      invalidateFutureState();
+    });
+    partsConsumed.setAttribute("aria-label", `Parts consumed for process ${row.sequence}`);
+    tr.appendChild(makeCell(partsConsumed));
 
     tr.appendChild(makeCell(makeInput("text", row.tool, "table-input", (value) => {
       row.tool = value;
@@ -252,8 +510,8 @@ function renderReviewRows() {
 function updateCounts() {
   const included = reviewRows.filter((row) => row.include).length;
   elementCount.textContent = `${included} ${included === 1 ? "element" : "elements"}`;
-  generateBtn.disabled = included === 0;
-  lineBalanceBtn.disabled = included < 2;
+  generateBtn.disabled = included === 0 || !allowanceInput.validity.valid;
+  lineBalanceBtn.disabled = included < 2 || !allowanceInput.validity.valid;
 }
 
 function applyTitleStyle(cell) {
@@ -289,7 +547,7 @@ function addStudyDataSheet(workbook, rows, metadata, options = {}) {
   const sheet = workbook.addWorksheet(sheetName, {
     views: [{ state: "frozen", ySplit: 6, showGridLines: false }]
   });
-  sheet.mergeCells("A1:I2");
+  sheet.mergeCells("A1:K2");
   sheet.getCell("A1").value = title;
   applyTitleStyle(sheet.getCell("A1"));
   sheet.getRow(1).height = 26;
@@ -307,8 +565,14 @@ function addStudyDataSheet(workbook, rows, metadata, options = {}) {
     row.getCell(3).font = { bold: true, color: { argb: "FF536071" } };
   });
   sheet.getCell("B5").numFmt = "yyyy-mm-dd hh:mm";
+  sheet.getCell("F3").value = "Allowance";
+  sheet.getCell("G3").value = (metadata.allowancePercent || 0) / 100;
+  sheet.getCell("G3").numFmt = "0.##%";
+  sheet.mergeCells("F4:J5");
+  sheet.getCell("F4").value = "Adjusted time = observed time × (1 + allowance). Times are export snapshots; change the allowance in the Processor and export again.";
+  sheet.getCell("F4").alignment = { wrapText: true, vertical: "middle" };
 
-  const headers = ["Sequence", "Operator / Station", "Description", "Duration (sec)", "Category", "Tool", "Image File", "Source ZIP", "Study ID"];
+  const headers = ["Sequence", "Operator / Station", "Description", "Adjusted time (sec)", "Category", "Tool", "Image File", "Source ZIP", "Study ID", "Observed time (sec)", "Parts Consumed"];
   sheet.getRow(6).values = headers;
   headers.forEach((_, index) => applyHeaderStyle(sheet.getRow(6).getCell(index + 1)));
 
@@ -316,17 +580,18 @@ function addStudyDataSheet(workbook, rows, metadata, options = {}) {
     const row = sheet.getRow(index + 7);
     row.values = [
       item.sequence, item.station || "Unassigned", item.description, item.durationSeconds,
-      item.category, item.tool || "None", item.imageFile, item.sourceFile, item.studyId
+      item.category, item.tool || "None", item.imageFile, item.sourceFile, item.studyId, item.observedDurationSeconds, item.partsConsumed || ""
     ];
     row.getCell(4).numFmt = "0.000";
+    row.getCell(10).numFmt = "0.000";
     row.alignment = { vertical: "middle", wrapText: true };
   });
 
   sheet.columns = [
     { width: 12 }, { width: 21 }, { width: 35 }, { width: 16 }, { width: 21 },
-    { width: 22 }, { width: 42 }, { width: 34 }, { width: 38 }
+    { width: 22 }, { width: 42 }, { width: 34 }, { width: 38 }, { width: 18 }, { width: 28 }
   ];
-  sheet.autoFilter = { from: "A6", to: `I${rows.length + 6}` };
+  sheet.autoFilter = { from: "A6", to: `K${rows.length + 6}` };
   sheet.getColumn(5).eachCell({ includeEmpty: false }, (cell, rowNumber) => {
     if (rowNumber > 6) {
       cell.dataValidation = { type: "list", allowBlank: false, formulae: [`"${categories.join(",")}"`] };
@@ -546,9 +811,10 @@ function addPaagSheet(workbook, rows, metadata) {
     [3, "Process Number"],
     [4, "Process Description"],
     [7, "Process Sketch"],
-    [18, "Tool"],
-    [19, "Category"],
-    [20, "Time (sec)"]
+    [18, "Parts Consumed"],
+    [19, "Tool"],
+    [20, "Category"],
+    [21, "Time (sec)"]
   ];
   labels.forEach(([rowNumber, label]) => {
     const cell = sheet.getCell(rowNumber, 1);
@@ -569,10 +835,11 @@ function addPaagSheet(workbook, rows, metadata) {
     sheet.getCell(4, col).alignment = { wrapText: true, vertical: "top", horizontal: "left" };
     sheet.mergeCells(7, col, 17, col);
     sheet.getCell(7, col).alignment = { horizontal: "center", vertical: "middle" };
-    sheet.getCell(18, col).value = item.tool || "None";
-    sheet.getCell(19, col).value = item.category;
-    sheet.getCell(20, col).value = item.durationSeconds;
-    sheet.getCell(20, col).numFmt = "0.000";
+    sheet.getCell(18, col).value = item.partsConsumed || "";
+    sheet.getCell(19, col).value = item.tool || "None";
+    sheet.getCell(20, col).value = item.category;
+    sheet.getCell(21, col).value = item.durationSeconds;
+    sheet.getCell(21, col).numFmt = "0.000";
 
     if (item.imageDataUrl) {
       const imageId = workbook.addImage({
@@ -594,9 +861,9 @@ function addPaagSheet(workbook, rows, metadata) {
   sheet.getRow(3).height = 32;
   [4, 5, 6].forEach((row) => { sheet.getRow(row).height = 28; });
   for (let row = 7; row <= 17; row += 1) sheet.getRow(row).height = 18;
-  [18, 19, 20].forEach((row) => { sheet.getRow(row).height = 30; });
+  [18, 19, 20, 21].forEach((row) => { sheet.getRow(row).height = 30; });
 
-  for (let row = 3; row <= 20; row += 1) {
+  for (let row = 3; row <= 21; row += 1) {
     for (let col = 1; col <= lastColumn; col += 1) {
       applyThinBorder(sheet.getCell(row, col));
       if (col > 1 && row >= 18) sheet.getCell(row, col).alignment = { horizontal: "center", vertical: "middle", wrapText: true };
@@ -607,7 +874,7 @@ function addPaagSheet(workbook, rows, metadata) {
     fitToPage: true,
     fitToWidth: 1,
     fitToHeight: 1,
-    printArea: `A1:${sheet.getColumn(lastColumn).letter}20`
+    printArea: `A1:${sheet.getColumn(lastColumn).letter}21`
   };
 }
 
@@ -724,8 +991,11 @@ function addYamazumiSheet(workbook, rows, metadata, options = {}) {
 }
 
 async function generateWorkbook() {
+  try { allowancePercent = readAllowancePercent(); }
+  catch (error) { setStatus(error.message, true); return; }
   const rows = reviewRows
     .filter((row) => row.include)
+    .map(row => ({ ...row }))
     .sort((a, b) => a.station.localeCompare(b.station) || a.sequence - b.sequence);
   if (rows.length === 0) return;
 
@@ -734,7 +1004,8 @@ async function generateWorkbook() {
     studyName: studyNameInput.value.trim() || "LineFlow Study",
     product: productNameInput.value.trim(),
     taktTime,
-    observer: observerNameInput.value.trim()
+    observer: observerNameInput.value.trim(),
+    allowancePercent
   };
 
   generateBtn.disabled = true;
@@ -834,18 +1105,21 @@ function setFutureStationCount(requestedCount, resetRestrictions = false) {
 
 function initializeBalanceItems() {
   const includedRows = reviewRows.filter((row) => row.include);
-  const stageSize = Math.max(1, Math.ceil(includedRows.length / balanceStageCount));
   balanceItems = includedRows.map((row, index) => ({
     id: `process-${index + 1}`,
     row,
-    stage: Math.min(balanceStageCount - 1, Math.floor(index / stageSize)),
+    stage: 0,
+    order: index,
     locked: false,
     allowedStations: [...new Set(includedRows.map((item) => item.station || "Unassigned"))]
   }));
+  groupBalanceItemsByZip();
   balanceEdges = [];
   selectedArrow = null;
   removeArrowBtn.disabled = true;
   selectedBalanceId = "";
+  selectedBalanceIds.clear();
+  balanceSelectionAnchor = "";
   connectionSourceId = "";
   const currentCount = Math.max(1, getCurrentBalanceStations().length);
   const maximumCount = Math.min(Math.max(1, includedRows.length), currentCount + 3);
@@ -859,13 +1133,140 @@ function initializeBalanceItems() {
   maximumStationCountInput.value = String(maximumCount);
 }
 
+function groupBalanceItemsByZip() {
+  const columns = new Map();
+  balanceItems.forEach((item, index) => {
+    const source = JSON.stringify([item.row.sourceFile || "", item.row.studyId || ""]);
+    if (!columns.has(source)) columns.set(source, columns.size * 2);
+    item.stage = columns.get(source);
+    item.order = index;
+    delete item.layoutY;
+  });
+  balanceStageCount = Math.max(5 + Math.ceil(balanceItems.length / 5), columns.size * 2 - 1);
+}
+
+function orderedBalanceItems() {
+  return [...balanceItems].sort((a, b) => a.stage - b.stage || (a.order || 0) - (b.order || 0));
+}
+
+function updateBalanceSelection(id, { shiftKey = false, ctrlKey = false, metaKey = false } = {}) {
+  if (shiftKey && balanceSelectionAnchor) {
+    const ordered = orderedBalanceItems();
+    const start = ordered.findIndex(item => item.id === balanceSelectionAnchor);
+    const end = ordered.findIndex(item => item.id === id);
+    if (start >= 0 && end >= 0) {
+      if (!ctrlKey && !metaKey) selectedBalanceIds.clear();
+      ordered.slice(Math.min(start, end), Math.max(start, end) + 1).forEach(item => selectedBalanceIds.add(item.id));
+    }
+  } else if (ctrlKey || metaKey) {
+    if (selectedBalanceIds.has(id)) selectedBalanceIds.delete(id);
+    else selectedBalanceIds.add(id);
+    balanceSelectionAnchor = id;
+  } else {
+    selectedBalanceIds = new Set([id]);
+    balanceSelectionAnchor = id;
+  }
+}
+
+function syncBalanceSelection() {
+  const count = selectedBalanceIds.size;
+  selectionCount.textContent = `${count} selected`;
+  clearSelectionBtn.disabled = count === 0;
+  moveSelectionColumn.disabled = count === 0;
+  moveSelectionBtn.disabled = count === 0;
+  connectBtn.disabled = count !== 1;
+  processEditor.hidden = count !== 1;
+  stageGrid.querySelectorAll(".process-card").forEach(card => {
+    const selected = selectedBalanceIds.has(card.dataset.balanceId);
+    card.classList.toggle("selected", selected);
+    card.querySelector(".process-card-select").setAttribute("aria-pressed", String(selected));
+  });
+}
+
+function moveSelectedBalanceItems(stage, beforeId = "", placement = null) {
+  if (!Number.isInteger(stage) || stage < 0 || stage >= balanceStageCount || !selectedBalanceIds.size) return;
+  const ordered = orderedBalanceItems();
+  const moving = ordered.filter(item => selectedBalanceIds.has(item.id));
+  if (placement && balanceDragLayout) {
+    // Freeze existing positions so moving a tile leaves useful space behind it.
+    balanceItems.forEach(item => { item.layoutY = balanceDragLayout.positions.get(item.id)?.top ?? item.layoutY; });
+    moving.forEach(item => { item.layoutY = placement.top + balanceDragLayout.offsets.get(item.id); });
+  } else {
+    moving.forEach(item => { delete item.layoutY; });
+  }
+  const destination = ordered.filter(item => item.stage === stage && !selectedBalanceIds.has(item.id));
+  const beforeIndex = destination.findIndex(item => item.id === beforeId);
+  destination.splice(beforeIndex < 0 ? destination.length : beforeIndex, 0, ...moving);
+  destination.forEach((item, index) => { item.stage = stage; item.order = index; });
+  cancelBalanceConnection(`${selectedBalanceIds.size} selected process${selectedBalanceIds.size === 1 ? "" : "es"} moved to Column ${stage + 1}. Relationships are unchanged.`);
+  renderBalanceWorkspace();
+}
+
+function columnContentTop(body) {
+  return body.getBoundingClientRect().top + body.clientTop + parseFloat(getComputedStyle(body).paddingTop);
+}
+
+function prepareBalanceDrag(card, clientY) {
+  const positions = new Map();
+  stageGrid.querySelectorAll(".process-card").forEach(element => {
+    const bounds = element.getBoundingClientRect();
+    positions.set(element.dataset.balanceId, { top: bounds.top - columnContentTop(element.parentElement), height: bounds.height });
+  });
+  const moving = orderedBalanceItems().filter(item => selectedBalanceIds.has(item.id));
+  const sameColumn = moving.every(item => item.stage === moving[0].stage);
+  const offsets = new Map();
+  let offset = 0;
+  moving.forEach(item => {
+    const position = positions.get(item.id);
+    offsets.set(item.id, sameColumn ? position.top - positions.get(moving[0].id).top : offset);
+    offset += position.height + 12;
+  });
+  balanceDragLayout = { positions, offsets, grabOffset: clientY - card.getBoundingClientRect().top + offsets.get(card.dataset.balanceId) };
+}
+
+function getBalanceDropPlacement(body, clientY) {
+  const requestedTop = Math.max(0, clientY - columnContentTop(body) - balanceDragLayout.grabOffset);
+  const remaining = [...body.querySelectorAll(".process-card")].filter(card => !selectedBalanceIds.has(card.dataset.balanceId));
+  const beforeIndex = remaining.findIndex(card => {
+    const bounds = card.getBoundingClientRect();
+    return requestedTop < bounds.top - columnContentTop(body) + bounds.height / 2;
+  });
+  const previous = remaining[(beforeIndex < 0 ? remaining.length : beforeIndex) - 1];
+  const minimumTop = previous ? previous.getBoundingClientRect().bottom - columnContentTop(body) + 12 : 0;
+  return { top: Math.max(requestedTop, minimumTop), beforeId: beforeIndex < 0 ? "" : remaining[beforeIndex].dataset.balanceId };
+}
+
+function positionBalanceCards() {
+  stageGrid.querySelectorAll(".precedence-stage-body").forEach(body => {
+    let nextTop = 0;
+    body.querySelectorAll(".process-card").forEach(card => {
+      const item = balanceItemById(card.dataset.balanceId);
+      const desiredTop = Number.isFinite(item.layoutY) ? Math.max(0, item.layoutY) : nextTop;
+      const top = Math.max(nextTop, desiredTop);
+      card.style.marginTop = `${top - nextTop}px`;
+      nextTop = top + card.getBoundingClientRect().height + 12;
+    });
+  });
+}
+
+function clearDropIndicators() {
+  stageGrid.querySelectorAll(".position-drop-marker").forEach(marker => marker.remove());
+  stageGrid.querySelectorAll(".drop-before, .drop-after, .drag-over").forEach(element => {
+    element.classList.remove("drop-before", "drop-after", "drag-over");
+  });
+}
+
+function balanceItemLabel(item) {
+  return `${item.row.sequence} · ${item.row.description} · ${item.row.sourceFile || "Unknown ZIP"} · ${item.row.station || "Unassigned"}`;
+}
+
 function startBalanceConnection(id) {
   selectedArrow = null;
   removeArrowBtn.disabled = true;
   connectionSourceId = id;
   connectionPointerMoved = false;
   connectBtn.textContent = "Cancel connection";
-  connectionHint.textContent = `Drag the arrow to the process that must happen after ${balanceItemById(id).row.description}.`;
+  connectionHint.textContent = `Select the process that must happen after ${balanceItemLabel(balanceItemById(id))}, or drag the arrow to it.`;
   stageGrid.querySelectorAll(".process-card").forEach((card) => {
     card.classList.toggle("connection-source", card.dataset.balanceId === id);
   });
@@ -906,34 +1307,47 @@ function renderBalanceWorkspace() {
     const heading = document.createElement("div");
     heading.className = "precedence-stage-heading";
     const title = document.createElement("strong");
-    title.textContent = stageIndex === 0 ? "Starting processes" : `Stage ${stageIndex + 1}`;
+    title.textContent = `Column ${stageIndex + 1}`;
     const subtitle = document.createElement("span");
-    subtitle.textContent = stageIndex === 0 ? "No predecessor required" : "Available after predecessors";
+    const columnItems = orderedBalanceItems().filter((item) => item.stage === stageIndex);
+    subtitle.textContent = columnItems.length ? `${columnItems.length} processes` : "Drag processes here";
     heading.append(title, subtitle);
 
     const body = document.createElement("div");
     body.className = "precedence-stage-body";
     body.addEventListener("dragover", (event) => {
+      if (!draggedBalanceId) return;
       event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      clearDropIndicators();
       body.classList.add("drag-over");
+      const placement = getBalanceDropPlacement(body, event.clientY);
+      const marker = document.createElement("div");
+      marker.className = "position-drop-marker";
+      marker.style.top = `${placement.top + parseFloat(getComputedStyle(body).paddingTop)}px`;
+      body.append(marker);
     });
-    body.addEventListener("dragleave", () => body.classList.remove("drag-over"));
+    body.addEventListener("dragleave", (event) => {
+      if (!body.contains(event.relatedTarget)) clearDropIndicators();
+    });
     body.addEventListener("drop", (event) => {
       event.preventDefault();
-      body.classList.remove("drag-over");
+      clearDropIndicators();
       const item = balanceItemById(draggedBalanceId);
       if (!item) return;
-      item.stage = stageIndex;
-      renderBalanceWorkspace();
-      selectBalanceItem(item.id);
+      const placement = getBalanceDropPlacement(body, event.clientY);
+      moveSelectedBalanceItems(stageIndex, placement.beforeId, placement);
+      draggedBalanceId = "";
+      balanceDragLayout = null;
+      stageGrid.classList.remove("moving-processes");
     });
 
-    balanceItems.filter((item) => item.stage === stageIndex).forEach((item) => {
+    columnItems.forEach((item) => {
       const card = document.createElement("div");
       card.className = "process-card";
       card.dataset.balanceId = item.id;
       card.draggable = true;
-      if (item.id === selectedBalanceId) card.classList.add("selected");
+      if (selectedBalanceIds.has(item.id)) card.classList.add("selected");
       if (item.id === connectionSourceId) card.classList.add("connection-source");
 
       const cardSelect = document.createElement("button");
@@ -944,23 +1358,40 @@ function renderBalanceWorkspace() {
       sequence.textContent = `${item.row.sequence}`;
       const name = document.createElement("strong");
       name.textContent = item.row.description;
+      const source = document.createElement("span");
+      source.className = "process-source";
+      source.textContent = item.row.sourceFile || "Unknown ZIP";
+      source.title = source.textContent;
       const meta = document.createElement("span");
       meta.className = "process-meta";
       meta.textContent = `${item.row.durationSeconds.toFixed(1)} sec · ${item.row.station}${item.locked ? " · Locked" : ""}`;
-      cardSelect.append(sequence, name, meta);
+      cardSelect.append(sequence, source, name, meta);
 
       const connector = document.createElement("button");
       connector.type = "button";
       connector.className = "process-connector";
       connector.textContent = "→";
-      connector.setAttribute("aria-label", `Draw precedence arrow from ${item.row.description}`);
+      connector.setAttribute("aria-label", `Draw precedence arrow from ${balanceItemLabel(item)}`);
 
-      card.addEventListener("dragstart", () => { draggedBalanceId = item.id; });
+      card.addEventListener("dragstart", (event) => {
+        if (!selectedBalanceIds.has(item.id)) selectBalanceItem(item.id);
+        draggedBalanceId = item.id;
+        prepareBalanceDrag(card, event.clientY);
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", item.id);
+        requestAnimationFrame(() => {
+          if (draggedBalanceId) stageGrid.classList.add("moving-processes");
+        });
+        connectionHint.textContent = `Moving ${selectedBalanceIds.size} selected process${selectedBalanceIds.size === 1 ? "" : "es"}. Drop into a column.`;
+      });
       card.addEventListener("dragend", () => {
         draggedBalanceId = "";
+        balanceDragLayout = null;
+        stageGrid.classList.remove("moving-processes");
+        clearDropIndicators();
         requestAnimationFrame(drawPrecedenceLines);
       });
-      cardSelect.addEventListener("click", () => handleBalanceCardClick(item.id));
+      cardSelect.addEventListener("click", (event) => handleBalanceCardClick(item.id, event));
       connector.addEventListener("pointerdown", (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -1001,6 +1432,17 @@ function renderBalanceWorkspace() {
     stageGrid.appendChild(stage);
   }
   balanceSummary.textContent = `${balanceItems.length} processes · ${balanceEdges.length} precedence relationship${balanceEdges.length === 1 ? "" : "s"}`;
+  const previousColumn = moveSelectionColumn.value;
+  moveSelectionColumn.replaceChildren();
+  for (let stage = 0; stage < balanceStageCount; stage += 1) {
+    const option = document.createElement("option");
+    option.value = String(stage);
+    option.textContent = `Column ${stage + 1}`;
+    moveSelectionColumn.append(option);
+  }
+  if (previousColumn && Number(previousColumn) < balanceStageCount) moveSelectionColumn.value = previousColumn;
+  syncBalanceSelection();
+  positionBalanceCards();
   renderRelationshipList();
   requestAnimationFrame(drawPrecedenceLines);
 }
@@ -1009,7 +1451,7 @@ function selectArrow(edge) {
   cancelBalanceConnection();
   selectedArrow = edge;
   removeArrowBtn.disabled = false;
-  connectionHint.textContent = `Selected: ${balanceItemById(edge.from).row.description} → ${balanceItemById(edge.to).row.description}. Choose Remove arrow or press Delete.`;
+  connectionHint.textContent = `Selected: ${balanceItemLabel(balanceItemById(edge.from))} → ${balanceItemLabel(balanceItemById(edge.to))}. Choose Remove arrow or press Delete.`;
   drawPrecedenceLines();
 }
 
@@ -1031,7 +1473,7 @@ function renderRelationshipList() {
     const row = document.createElement("div");
     row.className = "relationship-row";
     const label = document.createElement("span");
-    label.textContent = `${balanceItemById(edge.from).row.description} → ${balanceItemById(edge.to).row.description}`;
+    label.textContent = `${balanceItemLabel(balanceItemById(edge.from))} → ${balanceItemLabel(balanceItemById(edge.to))}`;
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "secondary-button";
@@ -1043,21 +1485,33 @@ function renderRelationshipList() {
   });
 }
 
-function handleBalanceCardClick(id) {
+function handleBalanceCardClick(id, event = {}) {
   if (connectionSourceId && connectionSourceId !== id) {
     finishBalanceConnection(id);
     return;
   }
-  selectBalanceItem(id);
+  selectedArrow = null;
+  removeArrowBtn.disabled = true;
+  updateBalanceSelection(id, event);
+  if (selectedBalanceIds.size === 1) selectBalanceItem([...selectedBalanceIds][0], true);
+  else {
+    selectedBalanceId = "";
+    syncBalanceSelection();
+  }
+  drawPrecedenceLines();
 }
 
-function selectBalanceItem(id) {
+function selectBalanceItem(id, preserveSelection = false) {
   selectedBalanceId = id;
   const item = balanceItemById(id);
   if (!item) return;
+  if (!preserveSelection) {
+    selectedBalanceIds = new Set([id]);
+    balanceSelectionAnchor = id;
+  }
   processEditor.hidden = false;
   selectedProcessName.textContent = item.row.description;
-  selectedProcessMeta.textContent = `${item.row.durationSeconds.toFixed(3)} sec · Currently ${item.row.station}`;
+  selectedProcessMeta.textContent = `${item.row.sequence} · ${item.row.sourceFile || "Unknown ZIP"} · ${item.row.durationSeconds.toFixed(3)} sec · Currently ${item.row.station}`;
   lockProcessInput.checked = item.locked;
   connectBtn.disabled = false;
   allowedStations.innerHTML = "";
@@ -1078,9 +1532,7 @@ function selectBalanceItem(id) {
     allowedStations.appendChild(label);
   });
   renderPredecessorList();
-  stageGrid.querySelectorAll(".process-card").forEach((card) => {
-    card.classList.toggle("selected", card.dataset.balanceId === id);
-  });
+  syncBalanceSelection();
 }
 
 function renderPredecessorList() {
@@ -1095,8 +1547,8 @@ function renderPredecessorList() {
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "relationship-chip";
-    remove.textContent = `${predecessor?.row.description || "Process"} ×`;
-    remove.setAttribute("aria-label", `Remove predecessor ${predecessor?.row.description || "Process"}`);
+    remove.textContent = `${balanceItemLabel(predecessor)} ×`;
+    remove.setAttribute("aria-label", `Remove predecessor ${balanceItemLabel(predecessor)}`);
     remove.addEventListener("click", () => removeBalanceEdge(edge));
     predecessorList.appendChild(remove);
   });
@@ -1547,6 +1999,9 @@ function renderFutureState(solution, scrollToResult = true) {
 }
 
 async function optimizeLineBalance() {
+  if (productBusy || importingStudies) return;
+  try { allowancePercent = readAllowancePercent(); }
+  catch (error) { setStatus(error.message, true); return; }
   const minimumCount = Math.floor(Number(minimumStationCountInput.value) || 0);
   const maximumCount = Math.floor(Number(maximumStationCountInput.value) || 0);
   if (minimumCount < 1 || maximumCount > balanceItems.length || minimumCount > maximumCount) {
@@ -1560,6 +2015,7 @@ async function optimizeLineBalance() {
   const requiredTakt = Number(taktTimeInput.value) || 0;
 
   confirmBalanceBtn.disabled = true;
+  allowanceInput.disabled = true;
   confirmBalanceBtn.textContent = "Calculating 0%";
   exportFutureBtn.disabled = true;
   setStatus(`Preparing ${maximumCount - minimumCount + 1} line-balance scenarios…`);
@@ -1640,11 +2096,14 @@ async function optimizeLineBalance() {
     futureStationPool = baselinePool;
     balanceItems.forEach((item) => { item.allowedStations = [...(baselineAllowed.get(item.id) || [])]; });
     confirmBalanceBtn.disabled = false;
+    allowanceInput.disabled = false;
     confirmBalanceBtn.textContent = "Calculate Scenarios";
   }
 }
 
 async function generateFutureStateWorkbook() {
+  try { readAllowancePercent(); }
+  catch (error) { setStatus(error.message, true); return; }
   if (!futureStateScenarios.length) return;
   const feasibleScenarios = futureStateScenarios.filter((scenario) => scenario.solution);
   if (!feasibleScenarios.length) return;
@@ -1656,7 +2115,8 @@ async function generateFutureStateWorkbook() {
   const baseMetadata = {
     studyName: studyNameInput.value.trim() || "LineFlow Study",
     product: productNameInput.value.trim(),
-    observer: observerNameInput.value.trim()
+    observer: observerNameInput.value.trim(),
+    allowancePercent
   };
   const currentMetadata = {
     ...baseMetadata,
@@ -1776,7 +2236,7 @@ function drawPrecedenceLines(pointer = null) {
     hit.setAttribute("tabindex", "0");
     hit.setAttribute("role", "button");
     hit.setAttribute("data-arrow-key", `${edge.from}:${edge.to}`);
-    hit.setAttribute("aria-label", `Select arrow from ${balanceItemById(edge.from).row.description} to ${balanceItemById(edge.to).row.description}`);
+    hit.setAttribute("aria-label", `Select arrow from ${balanceItemLabel(balanceItemById(edge.from))} to ${balanceItemLabel(balanceItemById(edge.to))}`);
     hit.addEventListener("click", (event) => { event.stopPropagation(); selectArrow(edge); });
     hit.addEventListener("keydown", (event) => {
       if (["Delete", "Backspace"].includes(event.key)) { event.preventDefault(); event.stopPropagation(); removeBalanceEdge(edge); }
@@ -1802,7 +2262,12 @@ function drawPrecedenceLines(pointer = null) {
 }
 
 function openBalanceWorkspace() {
-  initializeBalanceItems();
+  try { allowancePercent = readAllowancePercent(); }
+  catch (error) { setStatus(error.message, true); return; }
+  const includedRows = reviewRows.filter(row => row.include);
+  if (balanceItems.length !== includedRows.length || balanceItems.some((item, index) => item.row !== includedRows[index])) {
+    initializeBalanceItems();
+  }
   invalidateFutureState();
   balanceWorkspace.hidden = false;
   renderBalanceWorkspace();
@@ -1811,6 +2276,7 @@ function openBalanceWorkspace() {
 }
 
 zipInput.addEventListener("change", () => loadStudyFiles(zipInput.files));
+allowanceInput.addEventListener("input", updateAllowance);
 dropZone.addEventListener("dragover", (event) => {
   event.preventDefault();
   dropZone.classList.add("dragging");
@@ -1828,6 +2294,13 @@ addStageBtn.addEventListener("click", () => {
   balanceStageCount += 1;
   renderBalanceWorkspace();
 });
+groupByZipBtn.addEventListener("click", () => {
+  cancelBalanceConnection("Processes grouped by ZIP. Existing relationships and constraints are preserved.");
+  selectedArrow = null;
+  removeArrowBtn.disabled = true;
+  groupBalanceItemsByZip();
+  renderBalanceWorkspace();
+});
 connectBtn.addEventListener("click", () => {
   if (!selectedBalanceId) return;
   if (connectionSourceId) {
@@ -1836,6 +2309,14 @@ connectBtn.addEventListener("click", () => {
   }
   startBalanceConnection(selectedBalanceId);
 });
+clearSelectionBtn.addEventListener("click", () => {
+  selectedBalanceIds.clear();
+  selectedBalanceId = "";
+  balanceSelectionAnchor = "";
+  cancelBalanceConnection("Selection cleared. Shift-click a range or Ctrl-click individual processes.");
+  syncBalanceSelection();
+});
+moveSelectionBtn.addEventListener("click", () => moveSelectedBalanceItems(Number(moveSelectionColumn.value)));
 lockProcessInput.addEventListener("change", () => {
   const item = balanceItemById(selectedBalanceId);
   if (!item) return;
@@ -1875,8 +2356,15 @@ document.addEventListener("keydown", (event) => {
   removeBalanceEdge(selectedArrow);
 });
 window.addEventListener("resize", () => {
-  if (!balanceWorkspace.hidden) requestAnimationFrame(drawPrecedenceLines);
+  if (!balanceWorkspace.hidden) requestAnimationFrame(() => { positionBalanceCards(); drawPrecedenceLines(); });
 });
 precedenceCanvas.addEventListener("scroll", () => {
   if (!balanceWorkspace.hidden) requestAnimationFrame(drawPrecedenceLines);
 });
+
+saveProductBtn.addEventListener("click", saveProduct);
+loadProductBtn.addEventListener("click", loadProduct);
+newProductBtn.addEventListener("click", newProduct);
+savedProductSelect.addEventListener("change", () => { loadProductBtn.disabled = productBusy || !savedProductSelect.value; });
+savedProductSignature = JSON.stringify(captureProduct());
+refreshSavedProducts().catch(error => setProductStatus(`Saved products are unavailable: ${error.message}`, true));

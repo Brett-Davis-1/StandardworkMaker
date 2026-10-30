@@ -12,6 +12,8 @@ const processImageBtn = document.getElementById("processImageBtn");
 const nextProcessBtn = document.getElementById("nextProcessBtn");
 const processNameInput = document.getElementById("processNameInput");
 const currentProcessEl = document.getElementById("currentProcess");
+const previousProcessEl = document.getElementById("previousProcess");
+const processPhotoStatus = document.getElementById("processPhotoStatus");
 const cameraApp = document.querySelector(".camera-app");
 const captureToast = document.getElementById("captureToast");
 const captureToastTitle = document.getElementById("captureToastTitle");
@@ -65,11 +67,25 @@ function currentProcessLabel() {
   if (!currentProcess) {
     return processes.length === 0 ? defaultProcessLabel(1) : "No active process";
   }
-  return currentProcess.name.trim() || defaultProcessLabel(currentProcess.index);
+  return defaultProcessLabel(currentProcess.index);
 }
 
 function setProcessLabel() {
   currentProcessEl.textContent = currentProcessLabel();
+  const previousProcess = currentProcess ? processes[currentProcess.index - 2] : null;
+  const previousName = previousProcess
+    ? previousProcess.name.trim() || defaultProcessLabel(previousProcess.index)
+    : "None";
+  previousProcessEl.textContent = `Previous: ${previousName}`;
+  previousProcessEl.title = previousProcessEl.textContent;
+  const hasPhoto = Boolean(currentProcess?.screenshotDataUrl);
+  const photoStatus = !currentProcess && processes.length
+    ? "No active process" : hasPhoto ? "Photo captured" : "No photo yet";
+  processPhotoStatus.textContent = photoStatus;
+  processImageBtn.classList.toggle("photo-missing", Boolean(currentProcess) && !hasPhoto);
+  processImageBtn.classList.toggle("photo-captured", hasPhoto);
+  processImageBtn.setAttribute("aria-label", `Snapshot · ${photoStatus}`);
+  processImageBtn.title = hasPhoto ? "Retake photo for this process" : "Take photo for this process";
 }
 
 function renderProcesses() {
@@ -136,6 +152,7 @@ function screenshotFileNameFor(process) {
 }
 
 function setSessionState() {
+  setProcessLabel();
   const paused = sessionStarted && !running;
   cameraApp.classList.toggle("is-active", sessionStarted);
   cameraApp.classList.toggle("is-running", running);

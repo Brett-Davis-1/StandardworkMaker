@@ -1,0 +1,85 @@
+const test = require('node:test');
+test('precedence layout preserves relationships, selection, ordering, and vertical spacing', () => {
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const code = fs.readFileSync(__dirname + '/../processor/app.js', 'utf8');
+const group = code.slice(code.indexOf('function groupBalanceItemsByZip()'), code.indexOf('function startBalanceConnection('));
+const edges = code.slice(code.indexOf('function hasPath('), code.indexOf('function invalidateFutureState('));
+const context = vm.createContext({balanceItems: [], balanceEdges: [], selectedBalanceIds: new Set(), balanceSelectionAnchor: '', balanceStageCount: 0, connectionHint: {}, setStatus() {}, invalidateFutureState() {}, cancelBalanceConnection() {}, renderBalanceWorkspace() {}});
+vm.runInContext(group + edges + '\nfunction balanceItemById(id) { return balanceItems.find(item => item.id === id); }', context);
+function populate(n, sources) {
+  context.balanceItems = Array.from({length: n}, (_, i) => ({id: `p${i}`, row: {sourceFile: `source-${i % sources}.zip`, studyId: `study-${i % sources}`}, stage: 99, locked: i === 0, allowedStations: ['Operator 1']}));
+  context.balanceEdges = [];
+}
+populate(36, 3);
+context.balanceEdges = [{from: 'p0', to: 'p1'}];
+const originalEdges = JSON.stringify(context.balanceEdges);
+vm.runInContext('groupBalanceItemsByZip()', context);
+assert.equal(context.balanceStageCount, 13);
+assert.equal(context.balanceItems[1].stage, 2);
+assert.equal(context.balanceItems[2].stage, 4);
+assert.equal(new Set(context.balanceItems.filter(x => x.row.sourceFile === 'source-0.zip').map(x => x.stage)).size, 1);
+assert.equal(JSON.stringify(context.balanceEdges), originalEdges);
+assert.equal(context.balanceItems[0].locked, true);
+assert.deepEqual(context.balanceItems[0].allowedStations, ['Operator 1']);
+assert.equal(vm.runInContext("addBalanceEdge('p1', 'p2')", context), true);
+assert.equal(vm.runInContext("addBalanceEdge('p2', 'p0')", context), false);
+assert.equal(vm.runInContext("addBalanceEdge('p0', 'p1')", context), false);
+vm.runInContext('groupBalanceItemsByZip()', context);
+assert.equal(context.balanceEdges.length, 2);
+for (const [count, sources, expected] of [[25, 1, 10], [26, 2, 11], [30, 30, 59], [1, 1, 6], [0, 0, 5]]) {
+  populate(count, sources);
+  vm.runInContext('groupBalanceItemsByZip()', context);
+  assert.equal(context.balanceStageCount, expected);
+  assert.ok(context.balanceItems.every(x => x.stage >= 0 && x.stage < expected));
+}
+populate(10, 2);
+vm.runInContext("groupBalanceItemsByZip(); updateBalanceSelection('p0'); updateBalanceSelection('p4', {shiftKey: true});", context);
+assert.deepEqual([...context.selectedBalanceIds], ['p0', 'p2', 'p4']);
+vm.runInContext("updateBalanceSelection('p2', {ctrlKey: true}); updateBalanceSelection('p1', {ctrlKey: true});", context);
+assert.deepEqual([...context.selectedBalanceIds], ['p0', 'p4', 'p1']);
+context.balanceEdges = [{from:'p0',to:'p1'}];
+vm.runInContext('moveSelectedBalanceItems(3)', context);
+assert.equal(context.balanceItems[0].stage, 3);
+assert.equal(context.balanceItems[4].stage, 3);
+assert.equal(context.balanceItems[1].stage, 3);
+assert.equal(context.balanceItems[2].stage, 0);
+assert.equal(context.balanceEdges.length, 1);
+assert.equal(context.balanceItems[0].locked, true);
+vm.runInContext("updateBalanceSelection('p8'); updateBalanceSelection('p2', {shiftKey: true});", context);
+assert.deepEqual([...context.selectedBalanceIds], ['p2', 'p6', 'p8']);
+vm.runInContext("updateBalanceSelection('p6', {metaKey: true});", context);
+assert.deepEqual([...context.selectedBalanceIds], ['p2', 'p8']);
+populate(6, 1);
+vm.runInContext("groupBalanceItemsByZip(); updateBalanceSelection('p4'); moveSelectedBalanceItems(0, 'p1');", context);
+assert.deepEqual(Array.from(vm.runInContext('orderedBalanceItems().map(item => item.id)', context)), ['p0','p4','p1','p2','p3','p5']);
+vm.runInContext("moveSelectedBalanceItems(0);", context);
+assert.deepEqual(Array.from(vm.runInContext('orderedBalanceItems().map(item => item.id)', context)), ['p0','p1','p2','p3','p5','p4']);
+vm.runInContext("updateBalanceSelection('p1'); updateBalanceSelection('p3', {shiftKey:true}); moveSelectedBalanceItems(0, 'p0');", context);
+assert.deepEqual(Array.from(vm.runInContext('orderedBalanceItems().map(item => item.id)', context)), ['p1','p2','p3','p0','p5','p4']);
+assert.deepEqual(context.balanceItems.map(item => item.id), ['p0','p1','p2','p3','p4','p5']);
+populate(3, 1);
+vm.runInContext("groupBalanceItemsByZip(); updateBalanceSelection('p0'); updateBalanceSelection('p2', {ctrlKey:true});", context);
+context.balanceDragLayout = {positions: new Map([['p0',{top:0}],['p1',{top:140}],['p2',{top:300}]]), offsets: new Map([['p0',0],['p2',300]])};
+vm.runInContext('moveSelectedBalanceItems(2, "", {top:500})', context);
+assert.equal(context.balanceItems[0].layoutY, 500);
+assert.equal(context.balanceItems[2].layoutY, 800);
+assert.equal(context.balanceItems[1].layoutY, 140);
+assert.equal(context.balanceItems[1].stage, 0);
+populate(2, 1);
+const cards = context.balanceItems.map(item => ({dataset:{balanceId:item.id}, style:{}, getBoundingClientRect:()=>({height:100})}));
+context.stageGrid = {querySelectorAll:()=>[{querySelectorAll:()=>cards}]};
+context.balanceItems[0].layoutY = 0;
+context.balanceItems[1].layoutY = 500;
+vm.runInContext('positionBalanceCards()', context);
+assert.equal(cards[1].style.marginTop, '388px');
+context.balanceItems[1].layoutY = 50;
+vm.runInContext('positionBalanceCards()', context);
+assert.equal(cards[1].style.marginTop, '0px');
+vm.runInContext('groupBalanceItemsByZip()', context);
+assert.ok(context.balanceItems.every(item => item.layoutY === undefined));
+console.log('PASS: spacing, collision prevention, group offsets, grouping, selection, movement, preserved source order/edges/constraints, cycle rejection');
+
+});
+
